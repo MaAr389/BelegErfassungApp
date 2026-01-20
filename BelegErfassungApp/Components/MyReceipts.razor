@@ -1,0 +1,314 @@
+﻿@page "/MyReceipts"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Forms
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Mitglied,Administrator")]
+
+@inject IReceiptService ReceiptService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Meine Belege</PageTitle>
+
+<div class="container mt-4">
+    <h3>Meine Belege</h3>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Neuen Beleg hochladen</h5>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@uploadModel" OnValidSubmit="HandleUpload" FormName="uploadForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                @if (!string.IsNullOrEmpty(uploadMessage))
+                {
+                    <div class="alert @(uploadSuccess ? "alert-success" : "alert-danger")">
+                        @uploadMessage
+                    </div>
+                }
+
+                 <div class="mb-3">
+                    <label class="form-label">Beleg-Datei (JPG, PNG, PDF - max. 10 MB)</label>
+                     <InputFile OnChange="HandleFileSelected" class="form-control" accept=".jpg,.jpeg,.png,.pdf" /> 
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Belegdatum</label>
+                    <InputDate @bind-Value="uploadModel.ReceiptDate" class="form-control" />
+                    <ValidationMessage For="@(() => uploadModel.ReceiptDate)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Manueller Preis (EUR)</label>
+                    <InputNumber @bind-Value="uploadModel.ManualPrice" class="form-control" step="0.01" />
+                    <ValidationMessage For="@(() => uploadModel.ManualPrice)" />
+                </div>
+
+                <button type="submit" class="btn btn-primary" disabled="@isUploading">
+                    @if (isUploading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Wird hochgeladen...</span>
+                    }
+                    else
+                    {
+                        <span>Hochladen und OCR durchführen</span>
+                    }
+                </button>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Meine hochgeladenen Belege (@receipts.Count)</h5>
+        </div>
+        <div class="card-body">
+            @if (receipts.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Dateiname</th>
+                                <th>Upload-Datum</th>
+                                <th>Belegdatum</th>
+                                <th>Manueller Preis</th>
+                                <th>OCR Brutto</th>
+                                <th>OCR Netto</th>
+                                <th>OCR MwSt.</th>
+                                <th>Status</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var receipt in receipts)
+                            {
+                                <tr>
+                                    <td>@receipt.FileName</td>
+                                    <td>@receipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@receipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@receipt.ManualPrice.ToString("C")</td>
+                                    <td>
+                                        @if (receipt.OcrGrossAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrGrossAmount.Value.ToString("C")</span>
+                                            @if (receipt.OcrConfidence.HasValue)
+                                            {
+                                                <small class="text-muted">(@receipt.OcrConfidence.Value.ToString("P0"))</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrNetAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrNetAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrVatAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrVatAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(receipt.Status)">
+                                            @receipt.Status.ToString()
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" @onclick="() => ViewReceipt(receipt.Id)">
+                                            Ansehen
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Noch keine Belege hochgeladen.</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Receipt> receipts = new();
+
+    [SupplyParameterFromForm]
+    private UploadModel uploadModel { get; set; } = new();
+
+    private IBrowserFile? selectedFile;
+    private bool isUploading = false;
+    private string? uploadMessage;
+    private bool uploadSuccess = false;
+    private string currentUserId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            if (appUser != null)
+            {
+                currentUserId = appUser.Id;
+                await LoadReceipts();
+            }
+        }
+
+        // Model initialisieren falls noch nicht geschehen
+        if (uploadModel == null)
+        {
+            uploadModel = new UploadModel { ReceiptDate = DateTime.Today };
+        }
+    }
+
+    private async Task LoadReceipts()
+    {
+        try
+        {
+            receipts = await ReceiptService.GetUserReceiptsAsync(currentUserId);
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Laden der Belege: {ex.Message}";
+            uploadSuccess = false;
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task HandleUpload()
+    {
+        uploadMessage = null;
+        uploadSuccess = false;
+
+        if (selectedFile == null)
+        {
+            uploadMessage = "Bitte wählen Sie eine Datei aus.";
+            uploadSuccess = false;
+            return;
+        }
+
+        // Dateigröße prüfen (10 MB)
+        if (selectedFile.Size > 10 * 1024 * 1024)
+        {
+            uploadMessage = "Datei ist zu groß. Maximale Größe: 10 MB";
+            uploadSuccess = false;
+            return;
+        }
+
+        // Dateityp prüfen
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+        var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+        {
+            uploadMessage = "Ungültiger Dateityp. Erlaubt: JPG, PNG, PDF";
+            uploadSuccess = false;
+            return;
+        }
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+
+            var receipt = await ReceiptService.CreateReceiptAsync(
+                currentUserId,
+                stream,
+                selectedFile.Name,
+                selectedFile.ContentType,
+                uploadModel.ReceiptDate,
+                uploadModel.ManualPrice
+            );
+
+            uploadMessage = "Beleg erfolgreich hochgeladen und OCR durchgeführt!";
+            uploadSuccess = true;
+
+            // Formular zurücksetzen
+            uploadModel = new UploadModel { ReceiptDate = DateTime.Today };
+            selectedFile = null;
+
+            // Liste neu laden
+            await LoadReceipts();
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Upload: {ex.Message}";
+            uploadSuccess = false;
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusBadgeClass(ReceiptStatus status)
+    {
+        return status switch
+        {
+            ReceiptStatus.Offen => "bg-warning",
+            ReceiptStatus.InBearbeitung => "bg-info",
+            ReceiptStatus.Abgeschlossen => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private async Task ViewReceipt(int id)
+    {
+        var receipt = receipts.FirstOrDefault(r => r.Id == id);
+        if (receipt != null)
+        {
+            var message = $"Beleg: {receipt.FileName}\n" +
+                         $"Upload: {receipt.UploadDate.ToLocalTime():dd.MM.yyyy HH:mm}\n" +
+                         $"Belegdatum: {receipt.ReceiptDate:dd.MM.yyyy}\n" +
+                         $"Preis: {receipt.ManualPrice:C}\n" +
+                         $"Status: {receipt.Status}";
+
+            await JSRuntime.InvokeVoidAsync("alert", message);
+        }
+    }
+
+    public class UploadModel
+    {
+        [Required(ErrorMessage = "Belegdatum ist erforderlich")]
+        public DateTime ReceiptDate { get; set; } = DateTime.Today;
+
+        [Required(ErrorMessage = "Manueller Preis ist erforderlich")]
+        [Range(0.01, 999999.99, ErrorMessage = "Preis muss zwischen 0,01 und 999.999,99 liegen")]
+        public decimal ManualPrice { get; set; }
+    }
+}

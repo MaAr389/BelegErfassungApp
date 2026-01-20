@@ -1,0 +1,128 @@
+﻿@page "/admin/auditlog"
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+
+@inject IAuditLogService AuditLogService
+
+<PageTitle>Audit-Log</PageTitle>
+
+<div class="container-fluid mt-4">
+    <h2>📋 Audit-Log</h2>
+    <p class="text-muted">Nachverfolgung aller wichtigen Aktionen</p>
+
+    <!-- Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <label>Aktion</label>
+                    <input type="text" class="form-control" @bind="filterAction" placeholder="z.B. ReceiptCreated" />
+                </div>
+                <div class="col-md-4">
+                    <label>Beleg-ID</label>
+                    <input type="text" class="form-control" @bind="filterEntityId" placeholder="z.B. 42" />
+                </div>
+                <div class="col-md-4">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary form-control" @onclick="RefreshLogs">🔄 Aktualisieren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Loading -->
+    @if (isLoading)
+    {
+        <div class="alert alert-info">Lädt...</div>
+    }
+    else if (auditLogs == null || auditLogs.Count == 0)
+    {
+        <div class="alert alert-warning">Keine Einträge gefunden.</div>
+    }
+    else
+    {
+        <div class="alert alert-info">@auditLogs.Count Einträge angezeigt</div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Zeitstempel</th>
+                        <th>Aktion</th>
+                        <th>Entität ID</th>
+                        <th>Handelnder</th>
+                        <th>Betroffener</th>
+                        <th>Beschreibung</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in auditLogs)
+                    {
+                        <tr>
+                            <td>
+                                <small>@log.TimestampUtc.ToString("dd.MM.yyyy HH:mm:ss")</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">@log.Action</span>
+                            </td>
+                            <td>
+                                <code>@log.EntityId</code>
+                            </td>
+                            <td>
+                                <small>@log.ActorEmail</small>
+                            </td>
+                            <td>
+                                <small>@log.TargetUserId</small>
+                            </td>
+                            <td>
+                                @log.Description
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AuditLogEntry> auditLogs = new();
+    private bool isLoading = false;
+
+    private string filterAction = string.Empty;
+    private string filterEntityId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshLogs();
+    }
+
+    private async Task RefreshLogs()
+    {
+        isLoading = true;
+
+        try
+        {
+            auditLogs = await AuditLogService.GetAuditLogsAsync(
+                filterAction: string.IsNullOrWhiteSpace(filterAction) ? null : filterAction,
+                filterEntityId: string.IsNullOrWhiteSpace(filterEntityId) ? null : filterEntityId,
+                fromDate: null,  // ← ÄNDERN: Keine Datumsfilter
+                toDate: null,    // ← ÄNDERN: Keine Datumsfilter
+                skip: 0,
+                take: 100
+            );
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+}

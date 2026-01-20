@@ -1,0 +1,447 @@
+﻿@page "/MyReceiptsMobil"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Forms
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Mitglied,Administrator")]
+
+@inject IReceiptService ReceiptService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Meine Belege</PageTitle>
+
+<div class="container mt-4">
+    <h3>Meine Belege</h3>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Neuen Beleg hochladen</h5>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@uploadModel" OnValidSubmit="HandleUpload" FormName="uploadForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                @if (!string.IsNullOrEmpty(uploadMessage))
+                {
+                    <div class="alert @(uploadSuccess ? "alert-success" : "alert-danger")">
+                        @uploadMessage
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Beleg-Foto/Datei hochladen</label>
+                    <InputFile OnChange="HandleFileSelected"
+                               class="form-control"
+                               accept="image/*,.pdf"
+                               capture="environment" />
+                    <div class="form-text">
+                        Auf dem Handy: Foto direkt mit der Kamera aufnehmen | Desktop: Datei auswählen (max. 10 MB)
+                    </div>
+                </div>
+
+                @* Foto-Vorschau *@
+                @if (!string.IsNullOrEmpty(imagePreview))
+                {
+                    <div class="mb-3 text-center">
+                        <img src="@imagePreview"
+                             class="img-fluid rounded border"
+                             style="max-height: 300px; max-width: 100%;"
+                             alt="Beleg-Vorschau" />
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPreview">
+                                Foto entfernen
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label">Belegdatum</label>
+                    <InputDate @bind-Value="uploadModel.ReceiptDate" class="form-control" />
+                    <ValidationMessage For="@(() => uploadModel.ReceiptDate)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Manueller Preis (EUR)</label>
+                    <InputNumber @bind-Value="uploadModel.ManualPrice" class="form-control" step="0.01" />
+                    <ValidationMessage For="@(() => uploadModel.ManualPrice)" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100" disabled="@isUploading">
+                    @if (isUploading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Wird hochgeladen...</span>
+                    }
+                    else
+                    {
+                        <span>Hochladen und OCR durchführen</span>
+                    }
+                </button>
+            </EditForm>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Meine hochgeladenen Belege (@receipts.Count)</h5>
+        </div>
+        <div class="card-body">
+            @if (receipts.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Dateiname</th>
+                                <th>Upload-Datum</th>
+                                <th>Belegdatum</th>
+                                <th>Manueller Preis</th>
+                                <th>OCR Brutto</th>
+                                <th>OCR Netto</th>
+                                <th>OCR MwSt.</th>
+                                <th>Status</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var receipt in receipts)
+                            {
+                                <tr>
+                                    <td><small>@receipt.FileName</small></td>
+                                    <td><small>@receipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+                                    <td>@receipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@receipt.ManualPrice.ToString("C")</td>
+                                    <td>
+                                        @if (receipt.OcrGrossAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrGrossAmount.Value.ToString("C")</span>
+                                            @if (receipt.OcrConfidence.HasValue)
+                                            {
+                                                <small class="text-muted">(@receipt.OcrConfidence.Value.ToString("P0"))</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrNetAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrNetAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrVatAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrVatAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(receipt.Status)">
+                                            @GetStatusDisplayName(receipt.Status)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" @onclick="() => ViewReceipt(receipt.Id)">
+                                            Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Noch keine Belege hochgeladen.</p>
+            }
+        </div>
+    </div>
+</div>
+
+@* Details-Popup (wie bei AllReceipts) *@
+@if (showDetailsPopup && selectedReceipt != null)
+{
+    <div class="modal-overlay" @onclick="CloseDetailsPopup">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h5 class="modal-title">Beleg-Details (ID: @selectedReceipt.Id)</h5>
+                <button type="button" class="btn-close" @onclick="CloseDetailsPopup" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th>Dateiname:</th>
+                            <td>@selectedReceipt.FileName</td>
+                        </tr>
+                        <tr>
+                            <th>Upload-Datum:</th>
+                            <td>@selectedReceipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                        <tr>
+                            <th>Belegdatum:</th>
+                            <td>@selectedReceipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                        </tr>
+                        <tr>
+                            <th>Preis (manuell):</th>
+                            <td>@selectedReceipt.ManualPrice.ToString("C")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Bruttobetrag:</th>
+                            <td>@(selectedReceipt.OcrGrossAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Nettobetrag:</th>
+                            <td>@(selectedReceipt.OcrNetAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR MwSt.:</th>
+                            <td>@(selectedReceipt.OcrVatAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>Belegdatum (OCR):</th>
+                            <td>@(selectedReceipt.OcrReceiptDate?.ToString("dd.MM.yyyy") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Konfidenz:</th>
+                            <td>@(selectedReceipt.OcrConfidence?.ToString("P") ?? "n/a")</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td><span class="badge @GetStatusBadgeClass(selectedReceipt.Status)">@GetStatusDisplayName(selectedReceipt.Status)</span></td>
+                        </tr>
+                        <tr>
+                            <th>Letzte Statusänderung:</th>
+                            <td>@(selectedReceipt.StatusChangedDate?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "keine")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDetailsPopup">Schließen</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Receipt> receipts = new();
+
+    [SupplyParameterFromForm]
+    private UploadModel uploadModel { get; set; } = new();
+
+    private IBrowserFile? selectedFile;
+    private bool isUploading = false;
+    private string? uploadMessage;
+    private bool uploadSuccess = false;
+    private string currentUserId = "";
+
+    // NEU: Für Foto-Vorschau
+    private string? imagePreview;
+
+    // NEU: Für Details-Popup
+    private bool showDetailsPopup = false;
+    private Receipt? selectedReceipt;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var appUser = await UserManager.GetUserAsync(user);
+            if (appUser != null)
+            {
+                currentUserId = appUser.Id;
+                await LoadReceipts();
+            }
+        }
+
+        if (uploadModel == null)
+        {
+            uploadModel = new UploadModel { ReceiptDate = DateTime.Today };
+        }
+    }
+
+    private async Task LoadReceipts()
+    {
+        try
+        {
+            receipts = await ReceiptService.GetUserReceiptsAsync(currentUserId);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Laden der Belege: {ex.Message}";
+            uploadSuccess = false;
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        uploadMessage = null;
+
+        // Vorschau nur für Bilder (nicht für PDFs)
+        if (selectedFile.ContentType.StartsWith("image/"))
+        {
+            try
+            {
+                var maxPreviewSize = 2 * 1024 * 1024; // 2 MB für Vorschau
+                var resizedImage = await selectedFile.RequestImageFileAsync(selectedFile.ContentType, 800, 800);
+
+                using var stream = resizedImage.OpenReadStream(maxPreviewSize);
+                var buffer = new byte[stream.Length];
+                await stream.ReadAsync(buffer);
+                imagePreview = $"data:{selectedFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            }
+            catch
+            {
+                imagePreview = null;
+            }
+        }
+        else
+        {
+            imagePreview = null;
+        }
+
+        StateHasChanged();
+    }
+
+    private void ClearPreview()
+    {
+        selectedFile = null;
+        imagePreview = null;
+        uploadMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task HandleUpload()
+    {
+        uploadMessage = null;
+        uploadSuccess = false;
+
+        if (selectedFile == null)
+        {
+            uploadMessage = "Bitte wähle eine Datei aus.";
+            uploadSuccess = false;
+            return;
+        }
+
+        if (selectedFile.Size > 10 * 1024 * 1024)
+        {
+            uploadMessage = "Datei ist zu groß. Maximale Größe: 10 MB";
+            uploadSuccess = false;
+            return;
+        }
+
+        var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+        var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+        if (!allowedExtensions.Contains(extension))
+        {
+            uploadMessage = "Ungültiger Dateityp. Erlaubt: JPG, PNG, PDF";
+            uploadSuccess = false;
+            return;
+        }
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var stream = selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+
+            var receipt = await ReceiptService.CreateReceiptAsync(
+                currentUserId,
+                stream,
+                selectedFile.Name,
+                selectedFile.ContentType,
+                uploadModel.ReceiptDate,
+                uploadModel.ManualPrice
+            );
+
+            uploadMessage = "Beleg erfolgreich hochgeladen und OCR durchgeführt! ✅";
+            uploadSuccess = true;
+
+            // Formular zurücksetzen
+            uploadModel = new UploadModel { ReceiptDate = DateTime.Today };
+            selectedFile = null;
+            imagePreview = null;
+
+            await LoadReceipts();
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Upload: {ex.Message}";
+            uploadSuccess = false;
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetStatusBadgeClass(ReceiptStatus status)
+    {
+        return status switch
+        {
+            ReceiptStatus.Offen => "bg-warning text-dark",
+            ReceiptStatus.InBearbeitung => "bg-info text-dark",
+            ReceiptStatus.Abgeschlossen => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStatusDisplayName(ReceiptStatus status)
+    {
+        return status switch
+        {
+            ReceiptStatus.Offen => "Offen",
+            ReceiptStatus.InBearbeitung => "In Bearbeitung",
+            ReceiptStatus.Abgeschlossen => "Abgeschlossen",
+            _ => status.ToString()
+        };
+    }
+
+    private void ViewReceipt(int id)
+    {
+        selectedReceipt = receipts.FirstOrDefault(r => r.Id == id);
+        showDetailsPopup = selectedReceipt != null;
+    }
+
+    private void CloseDetailsPopup()
+    {
+        showDetailsPopup = false;
+        selectedReceipt = null;
+    }
+
+    public class UploadModel
+    {
+        [Required(ErrorMessage = "Belegdatum ist erforderlich")]
+        public DateTime ReceiptDate { get; set; } = DateTime.Today;
+
+        [Required(ErrorMessage = "Manueller Preis ist erforderlich")]
+        [Range(0.01, 999999.99, ErrorMessage = "Preis muss zwischen 0,01 und 999.999,99 liegen")]
+        public decimal ManualPrice { get; set; }
+    }
+}

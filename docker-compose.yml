@@ -1,0 +1,59 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: belegverwaltung_app
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:80
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
+      - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
+      - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
+      - Email__SmtpHost=smtp-mail.outlook.com
+      - Email__SmtpPort=587
+      - Email__SenderEmail=${SMTP_USER}
+      - Email__SenderPassword=${SMTP_PASSWORD}
+      - Email__SenderName=Belegverwaltung Admin
+    ports:
+      - "5000:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - belegverwaltung_network
+    env_file:
+      - .env
+    volumes:
+      - dpkeys:/root/.aspnet/DataProtection-Keys
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: belegverwaltung_db
+    environment:
+      - MSSQL_SA_PASSWORD=${SQL_PASSWORD}
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    healthcheck:
+      #test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - belegverwaltung_network
+    volumes:
+      - mssql_data:/var/opt/mssql
+
+networks:
+  belegverwaltung_network:
+    driver: bridge
+
+volumes:
+  mssql_data:
+    driver: local
+  dpkeys:
+    driver: local

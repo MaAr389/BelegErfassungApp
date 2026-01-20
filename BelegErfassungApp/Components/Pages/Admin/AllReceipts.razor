@@ -1,0 +1,621 @@
+﻿@rendermode InteractiveServer
+@page "/Admin/AllReceipts"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [Authorize(Roles = "Administrator")]
+
+@inject IReceiptService ReceiptService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Alle Belege - Administration</PageTitle>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+
+    .modal-dialog {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        max-width: 600px;
+        width: 90%;
+        position: relative;
+        z-index: 10000; /* HÖHER als overlay */
+    }
+
+        .modal-dialog button {
+            pointer-events: auto !important; /* WICHTIG */
+            cursor: pointer !important;
+        }
+
+    }
+</style>
+
+<div class="container-fluid mt-4">
+    <h3>Belegverwaltung - Alle Belege</h3>
+
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Offen</h5>
+                    <p class="card-text display-6">@receipts.Count(r => r.Status == ReceiptStatus.Offen)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">In Bearbeitung</h5>
+                    <p class="card-text display-6">@receipts.Count(r => r.Status == ReceiptStatus.InBearbeitung)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Abgeschlossen</h5>
+                    <p class="card-text display-6">@receipts.Count(r => r.Status == ReceiptStatus.Abgeschlossen)</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Gesamt</h5>
+                    <p class="card-text display-6">@receipts.Count</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Alle Belege (@filteredReceipts.Count())</h5>
+            <div>
+                <select class="form-select form-select-sm" @onchange="FilterByStatus">
+                    <option value="">Alle Status</option>
+                    <option value="Offen">Offen</option>
+                    <option value="InBearbeitung">In Bearbeitung</option>
+                    <option value="Abgeschlossen">Abgeschlossen</option>
+                </select>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (filteredReceipts.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Benutzer</th>
+                                <th>Dateiname</th>
+                                <th>Upload-Datum</th>
+                                <th>Belegdatum</th>
+                                <th>Manuell</th>
+                                <th>OCR Brutto</th>
+                                <th>OCR Netto</th>
+                                <th>OCR MwSt.</th>
+                                <th>Konfidenz</th>
+                                <th>Status</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var receipt in filteredReceipts)
+                            {
+                                var currentReceiptId = receipt.Id;
+                                var currentStatus = receipt.Status;
+
+                                <tr>
+                                    <td>@receipt.Id</td>
+                                    <td><small>@receipt.User?.UserName</small></td>
+                                    <td><small>@receipt.FileName</small></td>
+                                    <td><small>@receipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</small></td>
+                                    <td>@receipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@receipt.ManualPrice.ToString("C")</td>
+                                    <td>
+                                        @if (receipt.OcrGrossAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrGrossAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrNetAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrNetAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrVatAmount.HasValue)
+                                        {
+                                            <span>@receipt.OcrVatAmount.Value.ToString("C")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (receipt.OcrConfidence.HasValue)
+                                        {
+                                            <span class="badge @GetConfidenceBadgeClass(receipt.OcrConfidence.Value)">
+                                                @receipt.OcrConfidence.Value.ToString("P0")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+@*                                     <td>
+                                        <select class="form-select form-select-sm"
+                                                @onchange="@((ChangeEventArgs e) => OnStatusChangedWrapper(currentReceiptId, e))">
+                                            <option value="Offen" selected="@(currentStatus == ReceiptStatus.Offen)">Offen</option>
+                                            <option value="InBearbeitung" selected="@(currentStatus == ReceiptStatus.InBearbeitung)">In Bearbeitung</option>
+                                            <option value="Abgeschlossen" selected="@(currentStatus == ReceiptStatus.Abgeschlossen)">Abgeschlossen</option>
+                                        </select>
+                                    </td> *@
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-secondary me-1"
+                                                @onclick="() => SetStatusToOffen(currentReceiptId)"
+                                                disabled="@(currentStatus == ReceiptStatus.Offen)">
+                                            Offen
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-warning me-1"
+                                                @onclick="() => SetStatusToInBearbeitung(currentReceiptId)"
+                                                disabled="@(currentStatus == ReceiptStatus.InBearbeitung)">
+                                            In Bearbeitung
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-success"
+                                                @onclick="() => SetStatusToAbgeschlossen(currentReceiptId)"
+                                                disabled="@(currentStatus == ReceiptStatus.Abgeschlossen)">
+                                            Abgeschlossen
+                                        </button>
+                                    </td>
+
+
+
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-info" @onclick="() => ViewDetails(currentReceiptId)">
+                                            Details
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+@*                                             <button type="button" class="btn btn-sm btn-info" @onclick="() => ViewDetails(currentReceiptId)">
+                                                Details
+                                            </button> *@
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(currentReceiptId)">
+                                                Löschen
+                                            </button>
+                                        </div>
+                                    </td>
+
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted">Keine Belege vorhanden.</p>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- HIER DAS DIALOG-TEMPLATE EINFÜGEN -->
+@if (showDetailsPopup && selectedReceipt != null)
+{
+    <div class="modal-overlay" @onclick="CloseDetailsPopup">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h5 class="modal-title">Beleg-Details (ID: @selectedReceipt.Id)</h5>
+                <button type="button" class="btn-close" @onclick="CloseDetailsPopup" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th>Benutzer:</th>
+                            <td>@selectedReceipt.User?.UserName</td>
+                        </tr>
+                        <tr>
+                            <th>Dateiname:</th>
+                            <td>@selectedReceipt.FileName</td>
+                        </tr>
+                        <tr>
+                            <th>Upload-Datum:</th>
+                            <td>@selectedReceipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                        <tr>
+                            <th>Belegdatum:</th>
+                            <td>@selectedReceipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                        </tr>
+                        <tr>
+                            <th>Preis (manuell):</th>
+                            <td>@selectedReceipt.ManualPrice.ToString("C")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Bruttobetrag:</th>
+                            <td>@(selectedReceipt.OcrGrossAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Nettobetrag:</th>
+                            <td>@(selectedReceipt.OcrNetAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR MwSt.:</th>
+                            <td>@(selectedReceipt.OcrVatAmount?.ToString("C") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>Belegdatum (OCR):</th>
+                            <td>@(selectedReceipt.OcrReceiptDate?.ToString("dd.MM.yyyy") ?? "nicht erkannt")</td>
+                        </tr>
+                        <tr>
+                            <th>OCR Konfidenz:</th>
+                            <td>
+                                @if (selectedReceipt.OcrConfidence.HasValue)
+                                {
+                                    <span class="badge @GetConfidenceBadgeClass(selectedReceipt.OcrConfidence.Value)">
+                                        @selectedReceipt.OcrConfidence.Value.ToString("P0")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span>n/a</span>
+                                }
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td><span class="badge bg-secondary">@GetStatusDisplayName(selectedReceipt.Status)</span></td>
+                        </tr>
+                        <tr>
+                            <th>Letzte Statusänderung:</th>
+                            <td>@(selectedReceipt.StatusChangedDate?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "keine")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDetailsPopup">Schließen</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+@if (showDeleteConfirmation && receiptToDelete != null)
+{
+@*      <div class="modal-overlay" @onclick="CancelDelete">
+        <div class="modal-dialog" @onclick:stopPropagation="true"> *@
+             <div class="modal-overlay">
+                <div class="modal-dialog"> 
+
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Beleg löschen?</h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CancelDelete" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Möchtest du diesen Beleg wirklich unwiderruflich löschen?</strong></p>
+                <table class="table table-sm table-bordered">
+                    <tr>
+                        <th>ID:</th>
+                        <td>@receiptToDelete.Id</td>
+                    </tr>
+                    <tr>
+                        <th>Benutzer:</th>
+                        <td>@receiptToDelete.User?.UserName</td>
+                    </tr>
+                    <tr>
+                        <th>Dateiname:</th>
+                        <td>@receiptToDelete.FileName</td>
+                    </tr>
+                    <tr>
+                        <th>Belegdatum:</th>
+                        <td>@receiptToDelete.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                    </tr>
+                    <tr>
+                        <th>Preis:</th>
+                        <td>@receiptToDelete.ManualPrice.ToString("C")</td>
+                    </tr>
+                </table>
+                <div class="alert alert-warning">
+                    <strong>Hinweis:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
+                    Abbrechen
+                </button>
+                 @* <button type="button" class="btn btn-danger" @onclick="async () => await DeleteReceipt()" disabled="@isDeleting"> *@
+                     <button type="button"
+                        class="btn btn-danger"
+                        @onclick="@(() => DeleteReceipt())"
+                        @onclick:stopPropagation="true"
+                        disabled="@isDeleting">
+                    @if (isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Wird gelöscht...</span>
+                    }
+                    else
+                    {
+                        <span>Endgültig löschen</span>
+                    }
+                </button>
+                <button type="button" class="btn btn-danger" @onclick="TestClick">
+                    TEST - Klick mich
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Receipt> receipts = new();
+    private IEnumerable<Receipt> filteredReceipts = new List<Receipt>();
+    private string? selectedStatus;
+    private bool hasRendered = false;  // Diese Variable hinzufügen
+
+    private bool showDetailsPopup = false;
+    private Receipt? selectedReceipt;
+
+    private bool showDeleteConfirmation = false;
+    private Receipt? receiptToDelete;
+    private bool isDeleting = false;
+
+    
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private async Task<string> GetCurrentAdminUserIdAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        return authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+    }
+
+
+    private async Task TestClick()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Button funktioniert!");
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReceipts();
+    }
+
+     protected override async Task OnAfterRenderAsync(bool firstRender)
+     {
+         if (firstRender && !hasRendered)
+         {
+             hasRendered = true;
+
+             if (ReceiptService == null)
+             {
+                 await JSRuntime.InvokeVoidAsync("alert", "FEHLER: ReceiptService ist NULL!");
+             }
+             else
+             {
+                 await JSRuntime.InvokeVoidAsync("alert", "ReceiptService ist OK!");
+             }
+         }
+     }
+
+    private async Task LoadReceipts()
+    {
+        try
+        {
+            receipts = await ReceiptService.GetAllReceiptsAsync();
+            filteredReceipts = receipts;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Laden: {ex.Message}");
+        }
+    }
+
+    private async Task SetStatusToOffen(int receiptId)
+    {
+        await ChangeStatus(receiptId, ReceiptStatus.Offen);
+    }
+
+    private async Task SetStatusToInBearbeitung(int receiptId)
+    {
+        await ChangeStatus(receiptId, ReceiptStatus.InBearbeitung);
+    }
+
+    private async Task SetStatusToAbgeschlossen(int receiptId)
+    {
+        await ChangeStatus(receiptId, ReceiptStatus.Abgeschlossen);
+    }
+
+    private async Task ChangeStatus(int receiptId, ReceiptStatus newStatus)
+    {
+        try
+        {
+            var adminUserId = await GetCurrentAdminUserIdAsync();
+            await ReceiptService.UpdateStatusAsync(receiptId, newStatus, adminUserId);
+            //await ReceiptService.UpdateStatusAsync(receiptId, newStatus, userId);
+            await LoadReceipts();
+            await JSRuntime.InvokeVoidAsync("alert", "Status erfolgreich geändert!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Fehler: {ex.Message}");
+        }
+    }
+
+    private void FilterByStatus(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString();
+
+        if (string.IsNullOrEmpty(selectedStatus))
+        {
+            filteredReceipts = receipts;
+        }
+        else
+        {
+            if (Enum.TryParse<ReceiptStatus>(selectedStatus, out var status))
+            {
+                filteredReceipts = receipts.Where(r => r.Status == status).ToList();
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetConfidenceBadgeClass(double confidence)
+    {
+        if (confidence >= 0.8)
+            return "bg-success";
+        else if (confidence >= 0.6)
+            return "bg-warning";
+        else
+            return "bg-danger";
+    }
+
+    private async Task ViewDetails(int receiptId)
+    {
+        var receipt = receipts.FirstOrDefault(r => r.Id == receiptId);
+        if (receipt != null)
+        {
+            selectedReceipt = receipts.FirstOrDefault(r => r.Id == receiptId);
+            showDetailsPopup = selectedReceipt != null;
+
+            var grossAmount = receipt.OcrGrossAmount?.ToString("C") ?? "nicht erkannt";
+            var netAmount = receipt.OcrNetAmount?.ToString("C") ?? "nicht erkannt";
+            var vatAmount = receipt.OcrVatAmount?.ToString("C") ?? "nicht erkannt";
+            var ocrDate = receipt.OcrReceiptDate?.ToString("dd.MM.yyyy") ?? "nicht erkannt";
+            var confidence = receipt.OcrConfidence?.ToString("P") ?? "n/a";
+            var statusChanged = receipt.StatusChangedDate?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "keine";
+
+            var message = $"Beleg-Details (ID: {receipt.Id})\n" +
+                         $"================================\n" +
+                         $"Benutzer: {receipt.User?.UserName}\n" +
+                         $"Dateiname: {receipt.FileName}\n" +
+                         $"Upload-Datum: {receipt.UploadDate.ToLocalTime():dd.MM.yyyy HH:mm}\n" +
+                         $"Belegdatum: {receipt.ReceiptDate:dd.MM.yyyy}\n\n" +
+                         $"Manuell eingegeben:\n" +
+                         $"- Preis: {receipt.ManualPrice:C}\n\n" +
+                         $"OCR-Ergebnisse:\n" +
+                         $"- Bruttobetrag: {grossAmount}\n" +
+                         $"- Nettobetrag: {netAmount}\n" +
+                         $"- MwSt.: {vatAmount}\n" +
+                         $"- Belegdatum (OCR): {ocrDate}\n" +
+                         $"- Konfidenz: {confidence}\n\n" +
+                         $"Status: {GetStatusDisplayName(receipt.Status)}\n" +
+                         $"Letzte Statusänderung: {statusChanged}";
+
+            await JSRuntime.InvokeVoidAsync("alert", message);
+        }
+    }
+
+    private void CloseDetailsPopup()
+    {
+        showDetailsPopup = false;
+        selectedReceipt = null;
+    }
+
+    private string GetStatusDisplayName(ReceiptStatus status)
+    {
+        return status switch
+        {
+            ReceiptStatus.Offen => "Offen",
+            ReceiptStatus.InBearbeitung => "In Bearbeitung",
+            ReceiptStatus.Abgeschlossen => "Abgeschlossen",
+            _ => status.ToString()
+        };
+    }
+
+    private async Task DeleteReceipt()
+    {
+        // ERSTER TEST
+        await JSRuntime.InvokeVoidAsync("console.log", "DeleteReceipt GESTARTET");
+        await JSRuntime.InvokeVoidAsync("alert", "Methode wurde aufgerufen!");
+
+        // NULL-CHECK
+        if (receiptToDelete == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "FEHLER: receiptToDelete ist NULL!");
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("alert", $"Versuche Beleg {receiptToDelete.Id} zu löschen");
+
+        isDeleting = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Rufe ReceiptService auf...");
+
+            var adminUserId = await GetCurrentAdminUserIdAsync();
+            await ReceiptService.DeleteReceiptAsync(receiptToDelete.Id, adminUserId);
+
+            await JSRuntime.InvokeVoidAsync("alert", "Service-Aufruf erfolgreich!");
+
+            showDeleteConfirmation = false;
+            receiptToDelete = null;
+
+            await LoadReceipts();
+
+            await JSRuntime.InvokeVoidAsync("alert", "Beleg gelöscht! ✅");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"FEHLER: {ex.Message}\n\n{ex.StackTrace}");
+        }
+        finally
+        {
+            isDeleting = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+
+    private void ConfirmDelete(int receiptId)
+    {
+        receiptToDelete = receipts.FirstOrDefault(r => r.Id == receiptId);
+        showDeleteConfirmation = receiptToDelete != null;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirmation = false;
+        receiptToDelete = null;
+    }
+}
+
