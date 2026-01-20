@@ -1,10 +1,9 @@
 ﻿@page "/admin/users"
+@rendermode InteractiveServer
 @using BelegErfassungApp.Data
 @using BelegErfassungApp.Services
 @using Microsoft.AspNetCore.Authorization
 @* @attribute [Authorize(Roles = "Admin")] *@
-
-
 
 @inject IUserManagementService UserService
 @inject NavigationManager Navigation

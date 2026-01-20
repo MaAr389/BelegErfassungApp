@@ -37,8 +37,8 @@ services:
     ports:
       - "1433:1433"
     healthcheck:
-      #test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
+      #test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
       interval: 10s
       timeout: 5s
       retries: 10
