@@ -43,7 +43,7 @@
                         <th>Benutzername</th>
                         <th>E-Mail</th>
                         <th>Rolle</th>
-                        <th style="width: 150px;">Aktionen</th>
+                        <th style="width: 200px;">Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -64,6 +64,11 @@
                                 </select>
                             </td>
                             <td>
+                                <button class="btn btn-warning btn-sm me-1"
+                                        @onclick="() => ShowEditUserDialog(user)"
+                                        disabled="@isProcessing">
+                                    <span class="bi bi-pencil"></span> Bearbeiten
+                                </button>
                                 <button class="btn btn-danger btn-sm"
                                         @onclick="() => ConfirmDelete(user)"
                                         disabled="@isProcessing">
@@ -102,13 +107,14 @@
                             <label class="form-label">Benutzername *</label>
                             <InputText @bind-Value="newUser.Username" class="form-control" />
                             <ValidationMessage For="@(() => newUser.Username)" />
+                            <small class="text-muted">Muss identisch mit E-Mail sein für den Login</small>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Passwort *</label>
                             <InputText @bind-Value="newUser.Password" type="password" class="form-control" />
                             <ValidationMessage For="@(() => newUser.Password)" />
-                            <small class="text-muted">Mindestens 6 Zeichen, mindestens ein Großbuchstabe, eine Zahl und ein Sonderzeichen</small>
+                            <small class="text-muted">Mindestens 8 Zeichen, Groß-/Kleinbuchstaben, Zahl und Sonderzeichen</small>
                         </div>
 
                         <div class="mb-3">
@@ -142,6 +148,68 @@
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                                 }
                                 Erstellen
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Edit User Modal *@
+@if (showEditDialog && editUser != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Benutzer bearbeiten</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditDialog" disabled="@isProcessing"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@editUser" OnValidSubmit="UpdateUser">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">E-Mail *</label>
+                            <InputText @bind-Value="editUser.Email" class="form-control" />
+                            <ValidationMessage For="@(() => editUser.Email)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Benutzername *</label>
+                            <InputText @bind-Value="editUser.Username" class="form-control" />
+                            <ValidationMessage For="@(() => editUser.Username)" />
+                            <small class="text-muted">Muss identisch mit E-Mail sein für den Login</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Neues Passwort (optional)</label>
+                            <InputText @bind-Value="editUser.NewPassword" type="password" class="form-control" />
+                            <small class="text-muted">Leer lassen, um Passwort nicht zu ändern</small>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">@errorMessage</div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success">@successMessage</div>
+                        }
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseEditDialog" disabled="@isProcessing">
+                                Abbrechen
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@isProcessing">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                Speichern
                             </button>
                         </div>
                     </EditForm>
@@ -186,10 +254,12 @@
     private List<UserDto>? users;
     private List<string> availableRoles = new();
     private bool showCreateDialog = false;
+    private bool showEditDialog = false;
     private bool showDeleteDialog = false;
     private bool isProcessing = false;
     private UserDto? userToDelete;
     private NewUserModel newUser = new();
+    private EditUserModel? editUser;
     private string errorMessage = string.Empty;
     private string successMessage = string.Empty;
 
@@ -240,7 +310,6 @@
                 successMessage = $"Benutzer {newUser.Username} wurde erfolgreich erstellt.";
                 await LoadData();
 
-                // Dialog nach kurzer Verzögerung schließen
                 await Task.Delay(1500);
                 CloseCreateDialog();
             }
@@ -252,6 +321,79 @@
         catch (Exception ex)
         {
             errorMessage = $"Fehler beim Erstellen des Benutzers: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ShowEditUserDialog(UserDto user)
+    {
+        editUser = new EditUserModel
+        {
+            Id = user.Id,
+            Email = user.Email,
+            Username = user.Username,
+            NewPassword = string.Empty
+        };
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        showEditDialog = true;
+    }
+
+    private void CloseEditDialog()
+    {
+        showEditDialog = false;
+        editUser = null;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+    }
+
+    private async Task UpdateUser()
+    {
+        if (editUser == null) return;
+
+        isProcessing = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            // Update Benutzerdaten
+            var result = await UserService.UpdateUserAsync(
+                editUser.Id,
+                editUser.Email,
+                editUser.Username
+            );
+
+            if (!result.Succeeded)
+            {
+                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            // Passwort ändern, falls angegeben
+            if (!string.IsNullOrWhiteSpace(editUser.NewPassword))
+            {
+                var passwordResult = await UserService.ResetPasswordAsync(editUser.Id, editUser.NewPassword);
+                if (!passwordResult.Succeeded)
+                {
+                    errorMessage = "Benutzer aktualisiert, aber Passwort-Änderung fehlgeschlagen: " +
+                                 string.Join(", ", passwordResult.Errors.Select(e => e.Description));
+                    return;
+                }
+            }
+
+            successMessage = $"Benutzer {editUser.Username} wurde erfolgreich aktualisiert.";
+            await LoadData();
+
+            await Task.Delay(1500);
+            CloseEditDialog();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Aktualisieren: {ex.Message}";
         }
         finally
         {
@@ -321,5 +463,13 @@
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Role { get; set; } = "Mitglied";
+    }
+
+    public class EditUserModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

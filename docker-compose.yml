@@ -10,7 +10,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
       - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
       - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
-      - Email__SmtpHost=smtp-mail.outlook.com
+      - Email__SmtpHost=smtp.mail.de
       - Email__SmtpPort=587
       - Email__SenderEmail=${SMTP_USER}
       - Email__SenderPassword=${SMTP_PASSWORD}

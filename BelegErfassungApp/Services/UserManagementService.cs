@@ -43,6 +43,88 @@ namespace BelegErfassungApp.Services
             return userDtos;
         }
 
+        public async Task<UserDto?> GetUserByIdAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return null;
+
+            var roles = await _userManager.GetRolesAsync(user);
+            return new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email ?? string.Empty,
+                Username = user.UserName ?? string.Empty,
+                Roles = roles.ToList()
+            };
+        }
+
+        public async Task<IdentityResult> UpdateUserAsync(string userId, string email, string username)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return IdentityResult.Failed(new IdentityError
+                {
+                    Description = "Benutzer nicht gefunden"
+                });
+            }
+
+            var oldUsername = user.UserName;
+            var oldEmail = user.Email;
+
+            user.Email = email;
+            user.UserName = username;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (result.Succeeded)
+            {
+                await _auditLogService.LogAsync(
+                    "UserManagement",
+                    "UPDATE",
+                    $"Benutzer aktualisiert: {oldUsername} -> {username}, {oldEmail} -> {email}",
+                    userId
+                );
+
+                _logger.LogInformation("Benutzer {UserId} wurde aktualisiert", userId);
+            }
+
+            return result;
+        }
+
+        public async Task<IdentityResult> ResetPasswordAsync(string userId, string newPassword)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return IdentityResult.Failed(new IdentityError
+                {
+                    Description = "Benutzer nicht gefunden"
+                });
+            }
+
+            // Entferne altes Passwort
+            await _userManager.RemovePasswordAsync(user);
+
+            // Setze neues Passwort
+            var result = await _userManager.AddPasswordAsync(user, newPassword);
+
+            if (result.Succeeded)
+            {
+                await _auditLogService.LogAsync(
+                    "UserManagement",
+                    "PASSWORD_RESET",
+                    $"Passwort für Benutzer {user.UserName} wurde zurückgesetzt",
+                    userId
+                );
+
+                _logger.LogInformation("Passwort für Benutzer {Username} wurde zurückgesetzt", user.UserName);
+            }
+
+            return result;
+        }
+
+
         public async Task<IdentityResult> CreateUserAsync(string email, string username, string password, string role)
         {
             var user = new ApplicationUser
