@@ -127,6 +127,10 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+
+
+
 
 
 var app = builder.Build();
