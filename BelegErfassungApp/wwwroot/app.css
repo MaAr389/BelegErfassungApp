@@ -49,3 +49,46 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Am Ende der Datei hinzufügen: */
+
+/* Kommentar-System Styling */
+.comment-section {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.comment-item {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.comment-item .card {
+    transition: box-shadow 0.3s ease;
+}
+
+    .comment-item .card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+.comment-item.ms-4 {
+    border-left: 3px solid #dee2e6;
+    padding-left: 10px;
+}
+
+.replies {
+    padding-top: 10px;
+}
+

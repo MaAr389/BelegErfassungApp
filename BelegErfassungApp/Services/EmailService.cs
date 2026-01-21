@@ -85,6 +85,44 @@ namespace BelegErfassungApp.Services
             }
         }
 
+        public async Task SendCommentNotificationAsync(
+            string recipientEmail,
+            string recipientName,
+            string receiptFileName,
+            string commenterName,
+            string commentText,
+            bool isAdminComment)
+        {
+            try
+            {
+                var subject = isAdminComment
+                    ? $"💬 Neue Administrator-Antwort zu Beleg: {receiptFileName}"
+                    : $"💬 Neuer Kommentar zu Beleg: {receiptFileName}";
+
+                var body = $@"
+            <h2>💬 Neuer Kommentar</h2>
+            <p>Hallo {recipientName},</p>
+            <p>{(isAdminComment ? "Ein Administrator" : commenterName)} hat einen Kommentar zu deinem Beleg hinterlassen:</p>
+            <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;'>
+                <strong>{commenterName}:</strong><br/>
+                {commentText}
+            </div>
+            <p><strong>Beleg:</strong> {receiptFileName}</p>
+            <p><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</p>
+            <p>Du kannst die Details in deinem Dashboard ansehen.</p>
+            <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
+        ";
+
+                await SendEmailAsync(recipientEmail, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Fehler beim Versand der Kommentar-Benachrichtigung an {recipientEmail}");
+                throw;
+            }
+        }
+
+
         public async Task SendTestEmailAsync(string recipientEmail)
         {
             try
@@ -102,6 +140,47 @@ namespace BelegErfassungApp.Services
         }
 
         // Private Hilfsmethode
+        //private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+        //{
+        //    var smtpHost = _configuration["Email:SmtpHost"];
+        //    var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
+        //    var senderEmail = _configuration["Email:SenderEmail"];
+        //    var senderPassword = _configuration["Email:SenderPassword"];
+        //    var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
+
+        //    if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(senderEmail))
+        //    {
+        //        _logger.LogWarning("SMTP nicht konfiguriert. E-Mail wird nicht versendet.");
+        //        return;
+        //    }
+
+        //    using (var client = new SmtpClient(smtpHost, smtpPort))
+        //    {
+        //        client.EnableSsl = true;
+        //        client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+
+        //        var mailMessage = new MailMessage
+        //        {
+        //            From = new MailAddress(senderEmail, senderName),  // ✅ Jetzt sicher
+        //            Subject = subject,
+        //            Body = body,
+        //            IsBodyHtml = true
+        //        };
+
+        //        mailMessage.To.Add(new MailAddress(recipientEmail));
+
+        //        try
+        //        {
+        //            await client.SendMailAsync(mailMessage);
+        //            _logger.LogInformation($"E-Mail erfolgreich versendet an {recipientEmail}");
+        //        }
+        //        finally
+        //        {
+        //            mailMessage.Dispose();
+        //        }
+        //    }
+        //}
+
         private async Task SendEmailAsync(string recipientEmail, string subject, string body)
         {
             var smtpHost = _configuration["Email:SmtpHost"];
@@ -116,14 +195,30 @@ namespace BelegErfassungApp.Services
                 return;
             }
 
+            _logger.LogInformation($"📧 Versuche E-Mail zu versenden an {recipientEmail}");
+
             using (var client = new SmtpClient(smtpHost, smtpPort))
             {
-                client.EnableSsl = true;
-                client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+                // SSL nur aktivieren, wenn NICHT Port 25 (für Relay-Container)
+                client.EnableSsl = (smtpPort != 25);
+
+                // Bei Port 25 (Relay) keine Credentials nötig
+                if (smtpPort == 25)
+                {
+                    client.UseDefaultCredentials = true;
+                }
+                else
+                {
+                    client.UseDefaultCredentials = false;
+                    client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+                }
+
+                client.DeliveryMethod = SmtpDeliveryMethod.Network;
+                client.Timeout = 30000;
 
                 var mailMessage = new MailMessage
                 {
-                    From = new MailAddress(senderEmail, senderName),  // ✅ Jetzt sicher
+                    From = new MailAddress(senderEmail, senderName),
                     Subject = subject,
                     Body = body,
                     IsBodyHtml = true
@@ -134,7 +229,12 @@ namespace BelegErfassungApp.Services
                 try
                 {
                     await client.SendMailAsync(mailMessage);
-                    _logger.LogInformation($"E-Mail erfolgreich versendet an {recipientEmail}");
+                    _logger.LogInformation($"✅ E-Mail erfolgreich versendet an {recipientEmail}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"❌ SMTP-Fehler bei {recipientEmail}: {ex.Message}");
+                    throw;
                 }
                 finally
                 {
@@ -142,6 +242,8 @@ namespace BelegErfassungApp.Services
                 }
             }
         }
+
+
 
     }
 }

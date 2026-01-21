@@ -16,6 +16,8 @@ namespace BelegErfassungApp.Data
         // Am Anfang der Klasse (in OnModelCreating):
         public DbSet<AuditLogEntry> AuditLogs { get; set; }
 
+        public DbSet<ReceiptComment> ReceiptComments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -70,6 +72,32 @@ namespace BelegErfassungApp.Data
             builder.Entity<AuditLogEntry>()
                 .Property(a => a.TimestampUtc)
                 .HasDefaultValueSql("GETUTCDATE()");  // SQL Server: verwendet die Datenbank-Zeit
+
+            // ReceiptComment Konfiguration
+            builder.Entity<ReceiptComment>()
+                .HasOne(rc => rc.Receipt)
+                .WithMany()
+                .HasForeignKey(rc => rc.ReceiptId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<ReceiptComment>()
+                .HasOne(rc => rc.User)
+                .WithMany()
+                .HasForeignKey(rc => rc.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<ReceiptComment>()
+                .HasOne(rc => rc.ParentComment)
+                .WithMany()
+                .HasForeignKey(rc => rc.ParentCommentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Index für Performance
+            builder.Entity<ReceiptComment>()
+                .HasIndex(rc => rc.ReceiptId);
+
+            builder.Entity<ReceiptComment>()
+                .HasIndex(rc => rc.CreatedAt);
 
         }
     }

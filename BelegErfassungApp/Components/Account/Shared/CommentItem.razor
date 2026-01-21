@@ -1,0 +1,87 @@
+﻿@using BelegErfassungApp.Services
+
+<div class="comment-item @(Comment.ParentCommentId != null ? "ms-4" : "") mb-3">
+    <div class="card @(Comment.IsAdminComment ? "border-primary" : "")">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                    <strong>
+                        @Comment.UserName
+                        @if (Comment.IsAdminComment)
+                        {
+                            <span class="badge bg-primary ms-2">Administrator</span>
+                        }
+                    </strong>
+                    <br />
+                    <small class="text-muted">
+                        <i class="bi bi-clock"></i> @Comment.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                    </small>
+                </div>
+                <div>
+                    @if (!Comment.IsDeleted)
+                    {
+                        <button class="btn btn-sm btn-link" @onclick="() => OnReply.InvokeAsync(Comment)" title="Antworten">
+                            <i class="bi bi-reply"></i>
+                        </button>
+                        @if (CanDelete)
+                        {
+                            <button class="btn btn-sm btn-link text-danger" @onclick="() => DeleteComment()" title="Löschen">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+
+            @if (Comment.IsDeleted)
+            {
+                <p class="text-muted fst-italic"><i class="bi bi-trash"></i> Dieser Kommentar wurde gelöscht.</p>
+            }
+            else
+            {
+                <p class="mb-0">@Comment.CommentText</p>
+            }
+
+            <!-- Antworten -->
+            @if (Comment.Replies.Any())
+            {
+                <div class="replies mt-3">
+                    @foreach (var reply in Comment.Replies)
+                    {
+                        <CommentItem Comment="@reply"
+                                     OnReply="OnReply"
+                                     OnDelete="OnDelete"
+                                     CanDelete="@CanDelete" />
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public ReceiptCommentDto Comment { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<ReceiptCommentDto> OnReply { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnDelete { get; set; }
+
+    [Parameter]
+    public bool CanDelete { get; set; }
+
+    private bool showDeleteConfirm = false;
+
+    private async Task DeleteComment()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Möchten Sie diesen Kommentar wirklich löschen?"))
+        {
+            await OnDelete.InvokeAsync(Comment.Id);
+        }
+    }
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+}

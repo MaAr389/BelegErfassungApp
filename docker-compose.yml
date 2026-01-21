@@ -10,7 +10,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
       - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
       - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
-      - Email__SmtpHost=smtp.mail.de
+      - Email__SmtpHost=smtp-relay.brevo.com
       - Email__SmtpPort=587
       - Email__SenderEmail=${SMTP_USER}
       - Email__SenderPassword=${SMTP_PASSWORD}
@@ -20,6 +20,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       - belegverwaltung_network
     env_file:
@@ -38,11 +41,10 @@ services:
       - "1433:1433"
     healthcheck:
       test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
-      #test: ["CMD", "wget", "--spider", "-q", "http://localhost/health"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 30s
     networks:
       - belegverwaltung_network
     volumes:

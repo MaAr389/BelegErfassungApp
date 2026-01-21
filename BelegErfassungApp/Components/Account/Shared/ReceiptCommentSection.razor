@@ -1,0 +1,204 @@
+﻿@using BelegErfassungApp.Services
+@using BelegErfassungApp.Data
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IReceiptCommentService CommentService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<ReceiptCommentSection> Logger
+
+<div class="comment-section mt-4">
+    <h5 class="mb-3">
+        <i class="bi bi-chat-dots"></i> Kommentare (@comments.Count)
+    </h5>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Laden...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Kommentar-Liste -->
+        @if (comments.Any())
+        {
+            <div class="comments-list mb-3">
+                @foreach (var comment in comments)
+                {
+                    <CommentItem Comment="@comment" 
+                                 OnReply="HandleReply" 
+                                 OnDelete="HandleDelete" 
+                                 CanDelete="@isAdmin" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Noch keine Kommentare vorhanden.
+            </div>
+        }
+
+        <!-- Neuer Kommentar -->
+        @if (!string.IsNullOrEmpty(currentUserId))
+        {
+            <div class="card">
+                <div class="card-body">
+                    @if (replyToComment != null)
+                    {
+                        <div class="alert alert-secondary">
+                            <i class="bi bi-reply"></i> Antwort auf <strong>@replyToComment.UserName</strong>
+                            <button class="btn btn-sm btn-link float-end" @onclick="CancelReply">Abbrechen</button>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Neuer Kommentar</label>
+                        <textarea class="form-control" 
+                                  rows="3" 
+                                  @bind="newCommentText" 
+                                  placeholder="Kommentar hinzufügen..."
+                                  disabled="@isSubmitting"
+                                  maxlength="2000"></textarea>
+                        <small class="text-muted">@newCommentText.Length / 2000</small>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+
+                    <button class="btn btn-primary" 
+                            @onclick="SubmitComment" 
+                            disabled="@(isSubmitting || string.IsNullOrWhiteSpace(newCommentText))">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        @if (replyToComment != null)
+                        {
+                            <i class="bi bi-reply"></i> <text>Antworten</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-send"></i> <text>Kommentieren</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int ReceiptId { get; set; }
+
+    private List<ReceiptCommentDto> comments = new();
+    private string newCommentText = string.Empty;
+    private string currentUserId = string.Empty;
+    private bool isAdmin = false;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+    private ReceiptCommentDto? replyToComment = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentUser();
+        await LoadComments();
+    }
+
+    private async Task LoadCurrentUser()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            currentUserId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+            isAdmin = user.IsInRole("Administrator");
+        }
+    }
+
+    private async Task LoadComments()
+    {
+        try
+        {
+            isLoading = true;
+            comments = await CommentService.GetCommentsForReceiptAsync(ReceiptId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Fehler beim Laden der Kommentare");
+            errorMessage = "Fehler beim Laden der Kommentare.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SubmitComment()
+    {
+        if (string.IsNullOrWhiteSpace(newCommentText) || isSubmitting)
+            return;
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = string.Empty;
+
+            await CommentService.AddCommentAsync(
+                ReceiptId, 
+                currentUserId, 
+                newCommentText.Trim(),
+                replyToComment?.Id
+            );
+
+            newCommentText = string.Empty;
+            replyToComment = null;
+            await LoadComments();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Fehler beim Erstellen des Kommentars");
+            errorMessage = "Fehler beim Erstellen des Kommentars.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void HandleReply(ReceiptCommentDto comment)
+    {
+        replyToComment = comment;
+    }
+
+    private void CancelReply()
+    {
+        replyToComment = null;
+    }
+
+    private async Task HandleDelete(int commentId)
+    {
+        if (!isAdmin)
+            return;
+
+        try
+        {
+            var success = await CommentService.DeleteCommentAsync(commentId, currentUserId);
+            if (success)
+            {
+                await LoadComments();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Fehler beim Löschen des Kommentars");
+            errorMessage = "Fehler beim Löschen des Kommentars.";
+        }
+    }
+}

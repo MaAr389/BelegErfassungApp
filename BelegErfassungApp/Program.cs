@@ -129,8 +129,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
-
-
+builder.Services.AddScoped<IReceiptCommentService, ReceiptCommentService>();
 
 
 var app = builder.Build();

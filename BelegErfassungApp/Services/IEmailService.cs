@@ -26,6 +26,15 @@ namespace BelegErfassungApp.Services
         /// <summary>
         /// Sendet eine Test-E-Mail (für Debugging)
         /// </summary>
+        /// 
+        Task SendCommentNotificationAsync(
+            string recipientEmail,
+            string recipientName,
+            string receiptFileName,
+            string commenterName,
+            string commentText,
+            bool isAdminComment);
+
         Task SendTestEmailAsync(string recipientEmail);
     }
 }
