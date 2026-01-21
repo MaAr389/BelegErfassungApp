@@ -1,0 +1,78 @@
+﻿@* @page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+<PageTitle>Belegverwaltung</PageTitle>
+
+<AuthorizeView>
+    <NotAuthorized>
+        <div class="text-center mt-5">
+            <h1 class="display-4">Zentrale Belegverwaltung</h1>
+            <p class="lead mt-4">
+                Willkommen! Bitte melden Sie sich an, um auf die Belegverwaltung zuzugreifen.
+            </p>
+            <div class="mt-5">
+                <a href="/Account/Login" class="btn btn-primary btn-lg">
+                    <i class="bi bi-box-arrow-in-right"></i> Anmelden
+                </a>
+            </div>
+        </div>
+    </NotAuthorized>
+    <Authorized>
+        <!-- Automatische Weiterleitung zum Dashboard -->
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                // Eingeloggt → Dashboard
+                if (user.IsInRole("Administrator"))
+                {
+                    Navigation.NavigateTo("/admin/dashboard", replace: true);
+                }
+                else
+                {
+                    Navigation.NavigateTo("/receipts", replace: true);
+                }
+            }
+        }
+    }
+}
+ *@
+@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask != null)
+        {
+            var authState = await AuthenticationStateTask;
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                Navigation.NavigateTo("/dashboard", replace: true);
+            }
+            else
+            {
+                Navigation.NavigateTo("/Account/Login", replace: true);
+            }
+        }
+    }
+}

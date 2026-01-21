@@ -1,13 +1,13 @@
-﻿@page "/MyReceipts"
+﻿@page "/Myreceipts"
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.Components.Forms
 @using BelegErfassungApp.Data
 @using BelegErfassungApp.Services
+@using BelegErfassungApp.Components.Account.Shared
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = "Mitglied,Administrator")]
-
 @inject IReceiptService ReceiptService
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
@@ -34,9 +34,9 @@
                     </div>
                 }
 
-                 <div class="mb-3">
+                <div class="mb-3">
                     <label class="form-label">Beleg-Datei (JPG, PNG, PDF - max. 10 MB)</label>
-                     <InputFile OnChange="HandleFileSelected" class="form-control" accept=".jpg,.jpeg,.png,.pdf" /> 
+                    <InputFile OnChange="HandleFileSelected" class="form-control" accept=".jpg,.jpeg,.png,.pdf" />
                 </div>
 
                 <div class="mb-3">
@@ -137,7 +137,7 @@
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-info" @onclick="() => ViewReceipt(receipt.Id)">
-                                            Ansehen
+                                            <i class="bi bi-eye"></i> Details
                                         </button>
                                     </td>
                                 </tr>
@@ -154,6 +154,101 @@
     </div>
 </div>
 
+@* Detail-Modal mit Kommentaren *@
+@if (showDetailModal && selectedReceipt != null)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Beleg-Details: @selectedReceipt.FileName</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDetailModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Basis-Informationen</h6>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>Dateiname</th>
+                                        <td>@selectedReceipt.FileName</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Upload-Datum</th>
+                                        <td>@selectedReceipt.UploadDate.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Belegdatum</th>
+                                        <td>@selectedReceipt.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Manueller Preis</th>
+                                        <td>@selectedReceipt.ManualPrice.ToString("C")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Status</th>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(selectedReceipt.Status)">
+                                                @selectedReceipt.Status.ToString()
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>OCR-Ergebnisse</h6>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>OCR Bruttobetrag</th>
+                                        <td>@(selectedReceipt.OcrGrossAmount?.ToString("C") ?? "nicht erkannt")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>OCR Nettobetrag</th>
+                                        <td>@(selectedReceipt.OcrNetAmount?.ToString("C") ?? "nicht erkannt")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>OCR MwSt.-Betrag</th>
+                                        <td>@(selectedReceipt.OcrVatAmount?.ToString("C") ?? "nicht erkannt")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>OCR Belegdatum</th>
+                                        <td>@(selectedReceipt.OcrReceiptDate?.ToString("dd.MM.yyyy") ?? "nicht erkannt")</td>
+                                    </tr>
+                                    <tr>
+                                        <th>OCR Konfidenz</th>
+                                        <td>
+                                            @if (selectedReceipt.OcrConfidence.HasValue)
+                                            {
+                                                <span class="badge @GetConfidenceBadgeClass(selectedReceipt.OcrConfidence.Value)">
+                                                    @selectedReceipt.OcrConfidence.Value.ToString("P0")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">n/a</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- NEU: Kommentar-Sektion -->
+                    <hr class="my-4" />
+                    <ReceiptCommentSection ReceiptId="@selectedReceipt.Id" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseDetailModal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Receipt> receipts = new();
 
@@ -165,6 +260,10 @@
     private string? uploadMessage;
     private bool uploadSuccess = false;
     private string currentUserId = "";
+
+    // Für Detail-Modal
+    private bool showDetailModal = false;
+    private Receipt? selectedReceipt;
 
     protected override async Task OnInitializedAsync()
     {
@@ -231,6 +330,7 @@
         // Dateityp prüfen
         var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
         var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+
         if (!allowedExtensions.Contains(extension))
         {
             uploadMessage = "Ungültiger Dateityp. Erlaubt: JPG, PNG, PDF";
@@ -287,19 +387,26 @@
         };
     }
 
-    private async Task ViewReceipt(int id)
+    private string GetConfidenceBadgeClass(double confidence)
     {
-        var receipt = receipts.FirstOrDefault(r => r.Id == id);
-        if (receipt != null)
-        {
-            var message = $"Beleg: {receipt.FileName}\n" +
-                         $"Upload: {receipt.UploadDate.ToLocalTime():dd.MM.yyyy HH:mm}\n" +
-                         $"Belegdatum: {receipt.ReceiptDate:dd.MM.yyyy}\n" +
-                         $"Preis: {receipt.ManualPrice:C}\n" +
-                         $"Status: {receipt.Status}";
+        if (confidence >= 0.8) return "bg-success";
+        if (confidence >= 0.6) return "bg-warning";
+        return "bg-danger";
+    }
 
-            await JSRuntime.InvokeVoidAsync("alert", message);
+    private void ViewReceipt(int id)
+    {
+        selectedReceipt = receipts.FirstOrDefault(r => r.Id == id);
+        if (selectedReceipt != null)
+        {
+            showDetailModal = true;
         }
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedReceipt = null;
     }
 
     public class UploadModel

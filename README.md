@@ -351,7 +351,7 @@ Bei Fragen oder Problemen erstelle bitte ein [Issue](https://github.com/MaAr389/
 - [ ] Excel-Export
 - ✅ E-Mail-Benachrichtigungen
 - [ ] Azure Blob Storage
-- [ ] Mehrsprachigkeit (i18n)
+- ✅ Benutzerverwaltung
 - [ ] Dark Mode
 - [ ] Beleg-Kommentare
 - ✅ Audit-Log

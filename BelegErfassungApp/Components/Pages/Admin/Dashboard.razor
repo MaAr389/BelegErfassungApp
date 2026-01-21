@@ -1,0 +1,337 @@
+﻿@page "/dashboard"
+@page "/admin/dashboard"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using BelegErfassungApp.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@attribute [Authorize]  
+
+@inject IStatisticsService StatisticsService
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+<PageTitle>Dashboard</PageTitle>
+
+<h3>📊 @(isAdmin ? "Admin Dashboard" : "Mein Dashboard")</h3>
+
+@if (statistics == null)
+{
+    <p>Lade Statistiken...</p>
+}
+else
+{
+    @if (isAdmin)
+    {
+        <!-- ADMIN-ANSICHT (wie bisher) -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h6 class="card-title">Gesamt Belege</h6>
+                        <h2 class="mb-0">@statistics.TotalReceipts</h2>
+                        <small>Alle Zeit</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h6 class="card-title">Gesamtsumme</h6>
+                        <h2 class="mb-0">@statistics.TotalAmount.ToString("C")</h2>
+                        <small>Alle Belege</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h6 class="card-title">Ø OCR-Konfidenz</h6>
+                        <h2 class="mb-0">@statistics.AverageOcrConfidence.ToString("P0")</h2>
+                        <small>Durchschnitt</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h6 class="card-title">Dieser Monat</h6>
+                        <h2 class="mb-0">@statistics.ReceiptsThisMonth</h2>
+                        <small>Neue Belege</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status-Verteilung -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Status-Verteilung</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-secondary">@statistics.OpenReceipts</h3>
+                                    <p class="mb-0">Offen</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-info">@statistics.InProgressReceipts</h3>
+                                    <p class="mb-0">In Bearbeitung</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-success">@statistics.CompletedReceipts</h3>
+                                    <p class="mb-0">Abgeschlossen</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monatliche Statistiken (nur Admin) -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Monatliche Übersicht @selectedYear</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (monthlyStats != null && monthlyStats.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Monat</th>
+                                            <th>Anzahl Belege</th>
+                                            <th>Gesamtsumme</th>
+                                            <th>Ø Konfidenz</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var month in monthlyStats)
+                                        {
+                                            <tr>
+                                                <td>@month.MonthName @month.Year</td>
+                                                <td>@month.ReceiptCount</td>
+                                                <td>@month.TotalAmount.ToString("C")</td>
+                                                <td>
+                                                    <span class="badge @GetConfidenceBadge(month.AverageConfidence)">
+                                                        @month.AverageConfidence.ToString("P0")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="fw-bold">
+                                            <td>Gesamt</td>
+                                            <td>@monthlyStats.Sum(m => m.ReceiptCount)</td>
+                                            <td>@monthlyStats.Sum(m => m.TotalAmount).ToString("C")</td>
+                                            <td>-</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Keine Daten für @selectedYear vorhanden.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Benutzer-Statistiken (nur Admin) -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Belege pro Benutzer</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (userStats != null && userStats.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Benutzer</th>
+                                            <th>E-Mail</th>
+                                            <th>Anzahl Belege</th>
+                                            <th>Gesamtsumme</th>
+                                            <th>Ø Konfidenz</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var user in userStats)
+                                        {
+                                            <tr>
+                                                <td>@user.UserName</td>
+                                                <td>@user.Email</td>
+                                                <td>@user.ReceiptCount</td>
+                                                <td>@user.TotalAmount.ToString("C")</td>
+                                                <td>
+                                                    <span class="badge @GetConfidenceBadge(user.AverageConfidence)">
+                                                        @user.AverageConfidence.ToString("P0")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Keine Benutzerdaten vorhanden.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- USER-ANSICHT (vereinfacht) -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h6 class="card-title">Meine Belege</h6>
+                        <h2 class="mb-0">@userStatistics.TotalReceipts</h2>
+                        <small>Gesamt</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h6 class="card-title">Gesamtsumme</h6>
+                        <h2 class="mb-0">@userStatistics.TotalAmount.ToString("C")</h2>
+                        <small>Alle Belege</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h6 class="card-title">Dieser Monat</h6>
+                        <h2 class="mb-0">@userStatistics.ReceiptsThisMonth</h2>
+                        <small>Neue Belege</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Status-Verteilung -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Status meiner Belege</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-secondary">@userStatistics.OpenReceipts</h3>
+                                    <p class="mb-0">Offen</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-info">@userStatistics.InProgressReceipts</h3>
+                                    <p class="mb-0">In Bearbeitung</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3 border rounded">
+                                    <h3 class="text-success">@userStatistics.CompletedReceipts</h3>
+                                    <p class="mb-0">Abgeschlossen</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schnellzugriff für User -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Aktionen</h5>
+                    </div>
+                    <div class="card-body">
+                        <a href="/Myreceipts" class="btn btn-primary me-2">
+                            <i class="bi bi-file-earmark-plus"></i> Neuen Beleg hochladen
+                        </a>
+                        <a href="/Myreceipts" class="btn btn-secondary">
+                            <i class="bi bi-list"></i> Alle meine Belege ansehen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private DashboardStatistics? statistics;
+    private UserStatistics userStatistics = new();
+    private List<MonthlyStatistics>? monthlyStats;
+    private List<UserStatistics>? userStats;
+    private int selectedYear = DateTime.Now.Year;
+    private bool isAdmin = false;
+    private string currentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        isAdmin = user.IsInRole("Administrator");
+        currentUserId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        await LoadStatistics();
+    }
+
+    private async Task LoadStatistics()
+    {
+        if (isAdmin)
+        {
+            // Admin: Alle Statistiken laden
+            statistics = await StatisticsService.GetDashboardStatisticsAsync();
+            monthlyStats = await StatisticsService.GetMonthlyStatisticsAsync(selectedYear);
+            userStats = await StatisticsService.GetUserStatisticsAsync();
+        }
+        else
+        {
+            // User: Nur eigene Statistiken laden
+            statistics = await StatisticsService.GetDashboardStatisticsAsync();
+            userStatistics = await StatisticsService.GetUserStatisticsAsync(currentUserId);
+        }
+    }
+
+    private string GetConfidenceBadge(double confidence)
+    {
+        if (confidence >= 0.8) return "bg-success";
+        if (confidence >= 0.6) return "bg-warning";
+        return "bg-danger";
+    }
+}

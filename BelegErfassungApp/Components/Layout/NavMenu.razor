@@ -4,7 +4,7 @@
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">BelegErfassungApp</a>
+        <a class="navbar-brand" href="">App</a>
     </div>
 </div>
 
@@ -13,16 +13,26 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
 
     <nav class="flex-column">
-        <div class="nav-item px-3">
-@*             <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink> *@
-        </div>
-         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+
+        <!-- Home-Link: Rollenabhängig -->
+        <AuthorizeView Roles="Administrator,Mitglied">
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
+        <!-- Login/Logout -->
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
@@ -42,11 +52,6 @@
             </Authorized>
             <NotAuthorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Login">
                         <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
                     </NavLink>
@@ -54,50 +59,39 @@
             </NotAuthorized>
         </AuthorizeView>
 
-@*          <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div> *@
+        <!-- Mitglieder & Admin -->
+        <AuthorizeView Roles="Mitglied,Administrator">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="MyReceipts">
+                    <span class="bi bi-receipt" aria-hidden="true"></span> Meine Belege
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-@*         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div> *@
+        <!-- Nur Admin -->
+        <AuthorizeView Roles="Administrator">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/dashboard">
+                    <span class="bi bi-graph-up" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/allreceipts">
+                    <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege (Admin)
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/users">
+                    <span class="bi bi-people-fill" aria-hidden="true"></span> Benutzerverwaltung
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/auditlog">
+                    <span class="bi bi-folder" aria-hidden="true"></span> Logs (Admin)
+                </NavLink>
+            </div>
+        </AuthorizeView>
 
-
-        <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-            <nav class="flex-column">
-
-                <AuthorizeView Roles="Mitglied,Administrator">
-                    
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="MyReceipts">
-                            <span class="bi bi-receipt" aria-hidden="true"></span> Meine Belege
-                        </NavLink>
-                    </div>
-                </AuthorizeView>
-
-                <AuthorizeView Roles="Administrator">
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="Admin/AllReceipts">
-                            <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege (Admin)
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/users">
-                            <span class="bi bi-people-fill" aria-hidden="true"></span> Benutzerverwaltung
-                        </NavLink>
-                    </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="Admin/AuditLog">
-                            <span class="bi bi-folder" aria-hidden="true"></span> Logs (Admin)
-                        </NavLink>
-                    </div>
-                </AuthorizeView>
-            </nav>
-        </div>
     </nav>
 </div>
 
@@ -121,4 +115,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

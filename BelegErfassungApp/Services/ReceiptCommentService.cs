@@ -129,9 +129,9 @@ namespace BelegErfassungApp.Services
                     var admins = await _userManager.GetUsersInRoleAsync("Administrator");
                     var firstAdmin = admins.FirstOrDefault();
 
-                    if (firstAdmin != null)
+                    if (firstAdmin != null && !string.IsNullOrEmpty(firstAdmin.Email))
                     {
-                        recipientEmail = firstAdmin.Email ?? string.Empty;
+                        recipientEmail = firstAdmin.Email;
                         recipientName = "Administrator";
                     }
                     else
@@ -141,7 +141,7 @@ namespace BelegErfassungApp.Services
                     }
                 }
 
-                if (!string.IsNullOrEmpty(recipientEmail))
+                    if (!string.IsNullOrEmpty(recipientEmail))
                 {
                     await _emailService.SendCommentNotificationAsync(
                         recipientEmail,

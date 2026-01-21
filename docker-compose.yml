@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: "http://10.42.104.46:3128"
+        HTTPS_PROXY: "http://10.42.104.46:3128"
+        NO_PROXY: "localhost,127.0.0.1,db"
     container_name: belegverwaltung_app
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
@@ -15,14 +19,14 @@ services:
       - Email__SenderEmail=${SMTP_USER}
       - Email__SenderPassword=${SMTP_PASSWORD}
       - Email__SenderName=Belegverwaltung Admin
+      - HTTP_PROXY=http://10.42.126.89:3128/
+      - HTTPS_PROXY=http://10.42.126.89:3128/
+      - NO_PROXY=localhost,127.0.0.1,db"
     ports:
       - "5000:80"
     depends_on:
       db:
         condition: service_healthy
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
     networks:
       - belegverwaltung_network
     env_file:

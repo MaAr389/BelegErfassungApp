@@ -1,7 +1,23 @@
-﻿@page "/"
+﻿@page "/home"
+@using Microsoft.AspNetCore.Components.Authorization
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Willkommen</PageTitle>
 
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
+<AuthorizeView>
+    <NotAuthorized>
+        <div class="text-center mt-5">
+            <h1>Willkommen bei der Belegverwaltung</h1>
+            <p class="lead mt-4">
+                Bitte melden Sie sich an, um Ihre Belege zu verwalten.
+            </p>
+            <div class="mt-4">
+                <a href="/Account/Login" class="btn btn-primary btn-lg">
+                    <i class="bi bi-box-arrow-in-right"></i> Jetzt anmelden
+                </a>
+            </div>
+        </div>
+    </NotAuthorized>
+    <Authorized>
+        <!-- Eingeloggte User werden zum Dashboard weitergeleitet (passiert schon automatisch durch Dashboard.razor) -->
+    </Authorized>
+</AuthorizeView>

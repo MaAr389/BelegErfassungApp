@@ -1,4 +1,5 @@
-﻿@using BelegErfassungApp.Services
+﻿@rendermode InteractiveServer
+@using BelegErfassungApp.Services
 
 <div class="comment-item @(Comment.ParentCommentId != null ? "ms-4" : "") mb-3">
     <div class="card @(Comment.IsAdminComment ? "border-primary" : "")">
@@ -72,8 +73,6 @@
     [Parameter]
     public bool CanDelete { get; set; }
 
-    private bool showDeleteConfirm = false;
-
     private async Task DeleteComment()
     {
         if (await JSRuntime.InvokeAsync<bool>("confirm", "Möchten Sie diesen Kommentar wirklich löschen?"))
@@ -81,6 +80,7 @@
             await OnDelete.InvokeAsync(Comment.Id);
         }
     }
+
 
     [Inject]
     private IJSRuntime JSRuntime { get; set; } = null!;

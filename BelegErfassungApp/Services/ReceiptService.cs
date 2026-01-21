@@ -7,7 +7,6 @@ namespace BelegErfassungApp.Services
 {
     public interface IReceiptService
     {
-
         Task<Receipt> CreateReceiptAsync(string userId, Stream fileStream,
             string fileName, string contentType, DateTime receiptDate, decimal manualPrice);
         Task<List<Receipt>> GetUserReceiptsAsync(string userId);
@@ -16,7 +15,7 @@ namespace BelegErfassungApp.Services
         Task UpdateStatusAsync(int receiptId, ReceiptStatus newStatus, string adminUserId); // Auditlog "string adminUserId" ergänzt
         Task<string> GetReceiptFilePathAsync(int receiptId);
         Task DeleteReceiptAsync(int receiptId, string adminUserId); // Auditlog "string adminUserId" ergänzt
-
+        Task UpdateReceiptAsync(Receipt receipt);
     }
 
     public class ReceiptService : IReceiptService
@@ -55,9 +54,6 @@ namespace BelegErfassungApp.Services
                 _logger.LogInformation($"Upload-Verzeichnis erstellt: {fullPath}");
             }
         }
-
-
-
 
         public async Task<Receipt> CreateReceiptAsync(
             string userId,
@@ -211,99 +207,26 @@ namespace BelegErfassungApp.Services
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 
-        // Original bevor Implementation Audit Log
-        //public async Task UpdateStatusAsync(int receiptId, ReceiptStatus newStatus)
-        //{
-        //    var receipt = await _context.Receipts.FindAsync(receiptId);
-        //    if (receipt != null)
-        //    {
-        //        receipt.Status = newStatus;
-        //        receipt.StatusChangedDate = DateTime.UtcNow;
-        //        await _context.SaveChangesAsync();
-
-        //        _logger.LogInformation($"Receipt {receiptId} Status auf {newStatus} gesetzt");
-        //    }
-        //    else
-        //    {
-        //        _logger.LogWarning($"Receipt {receiptId} nicht gefunden für Status-Update");
-        //    }
-        //}
-
-        //public async Task UpdateStatusAsync(int receiptId, ReceiptStatus newStatus, string adminUserId)
-        //{
-        //    try
-        //    {
-        //        // Beleg laden mit User-Daten
-        //        var receipt = await _context.Receipts
-        //            .Include(r => r.User)
-        //            .FirstOrDefaultAsync(r => r.Id == receiptId);
-
-        //        if (receipt == null)
-        //        {
-        //            _logger.LogWarning($"Receipt {receiptId} nicht gefunden für Status-Update");
-        //            throw new InvalidOperationException($"Beleg {receiptId} nicht gefunden");
-        //        }
-
-        //        // Alten Status speichern für Audit-Log
-        //        var oldStatus = receipt.Status;
-
-        //        // Status aktualisieren
-        //        receipt.Status = newStatus;
-        //        receipt.StatusChangedDate = DateTime.UtcNow;
-        //        await _context.SaveChangesAsync();
-
-        //        _logger.LogInformation($"Receipt {receiptId} Status von {oldStatus} auf {newStatus} durch {adminUserId} geändert");
-
-        //        // 🔍 AUDIT-LOG: Status geändert
-        //        await _auditLogService.LogAsync(
-        //            action: "StatusChanged",
-        //            entityType: "Receipt",
-        //            entityId: receiptId.ToString(),
-        //            actorUserId: adminUserId,
-        //            targetUserId: receipt.UserId,
-        //            detailsJson: $"{{\"OldStatus\": \"{oldStatus}\", \"NewStatus\": \"{newStatus}\"}}",
-        //            description: $"Status geändert: {oldStatus} → {newStatus} (Admin: {receipt.User?.Email})"
-        //        );
-
-        //        // 📧 EMAIL-BENACHRICHTIGUNG: Dem Benutzer Bescheid geben
-        //        if (!string.IsNullOrWhiteSpace(receipt.User?.Email))
-        //        {
-        //            try
-        //            {
-        //                await _emailService.SendStatusChangeNotificationAsync(
-        //                    recipientEmail: receipt.User.Email,
-        //                    userName: receipt.User.UserName ?? "Benutzer",
-        //                    receiptFileName: receipt.FileName,
-        //                    oldStatus: oldStatus.ToString(),
-        //                    newStatus: newStatus.ToString()
-        //                );
-        //                _logger.LogInformation($"Status-Benachrichtigung versendet an {receipt.User.Email}");
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                _logger.LogError(ex, $"Fehler beim Versand der E-Mail-Benachrichtigung");
-        //                // Fehler nicht werfen - Beleg-Update soll trotzdem erfolgreich sein
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Fehler beim Status-Update für Receipt {receiptId}");
-        //        throw;
-        //    }
-        //}
-
         public async Task UpdateStatusAsync(int receiptId, ReceiptStatus newStatus, string adminUserId)
         {
             try
             {
-                var receipt = await _context.Receipts.FindAsync(receiptId);
+                // 1. Receipt UND User gleichzeitig laden (mit Include)
+                var receipt = await _context.Receipts
+                    .Include(r => r.User)
+                    .FirstOrDefaultAsync(r => r.Id == receiptId);
 
                 if (receipt == null)
                 {
                     throw new InvalidOperationException($"Beleg {receiptId} nicht gefunden");
                 }
 
+                // User-Daten zwischenspeichern VOR SaveChanges
+                var userEmail = receipt.User?.Email;
+                var userName = receipt.User?.UserName ?? receipt.User?.Email ?? "Benutzer";
+                var userId = receipt.UserId;
+
+                // 2. Status aktualisieren
                 var oldStatus = receipt.Status;
                 receipt.Status = newStatus;
                 receipt.StatusChangedDate = DateTime.UtcNow;
@@ -312,7 +235,7 @@ namespace BelegErfassungApp.Services
 
                 _logger.LogInformation($"✅ Receipt {receiptId} Status aktualisiert: {oldStatus} → {newStatus}");
 
-                // 🔍 AUDIT-LOG
+                // 3. AUDIT-LOG (nach SaveChanges, aber mit zwischengespeicherten Daten)
                 try
                 {
                     await _auditLogService.LogAsync(
@@ -320,7 +243,7 @@ namespace BelegErfassungApp.Services
                         entityType: "Receipt",
                         entityId: receiptId.ToString(),
                         actorUserId: adminUserId,
-                        targetUserId: receipt.UserId,
+                        targetUserId: userId,
                         detailsJson: $"{{\"OldStatus\": \"{oldStatus}\", \"NewStatus\": \"{newStatus}\"}}",
                         description: $"Status geändert: {oldStatus} → {newStatus}"
                     );
@@ -330,31 +253,22 @@ namespace BelegErfassungApp.Services
                     _logger.LogError(auditEx, "Audit-Log Fehler");
                 }
 
-                // 📧 EMAIL-BENACHRICHTIGUNG
-                if (_emailService != null)  // ← Prüfe ob Service existiert!
+                // 4. EMAIL-BENACHRICHTIGUNG (mit zwischengespeicherten Daten)
+                if (_emailService != null && !string.IsNullOrWhiteSpace(userEmail))
                 {
                     try
                     {
-                        var user = await _context.Users.FindAsync(receipt.UserId);
+                        _logger.LogInformation($"📧 Versuche E-Mail zu versenden an {userEmail}");
 
-                        if (user != null && !string.IsNullOrWhiteSpace(user.Email))
-                        {
-                            _logger.LogInformation($"📧 Versuche E-Mail zu versenden an {user.Email}");
+                        await _emailService.SendStatusChangeNotificationAsync(
+                            recipientEmail: userEmail,
+                            userName: userName,
+                            receiptFileName: receipt.FileName,
+                            oldStatus: oldStatus.ToString(),
+                            newStatus: newStatus.ToString()
+                        );
 
-                            await _emailService.SendStatusChangeNotificationAsync(
-                                recipientEmail: user.Email,
-                                userName: user.Email ?? "Benutzer",
-                                receiptFileName: receipt.FileName,
-                                oldStatus: oldStatus.ToString(),
-                                newStatus: newStatus.ToString()
-                            );
-
-                            _logger.LogInformation($"✅ E-Mail versendet an {user.Email}");
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ User oder E-Mail nicht gefunden");
-                        }
+                        _logger.LogInformation($"✅ E-Mail versendet an {userEmail}");
                     }
                     catch (Exception emailEx)
                     {
@@ -362,9 +276,13 @@ namespace BelegErfassungApp.Services
                         // NICHT werfen - Status ist bereits aktualisiert
                     }
                 }
-                else
+                else if (_emailService == null)
                 {
                     _logger.LogWarning("⚠️ EmailService ist NULL - nicht injiziert?");
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ User-E-Mail nicht gefunden");
                 }
             }
             catch (Exception ex)
@@ -373,56 +291,11 @@ namespace BelegErfassungApp.Services
                 throw;
             }
         }
-
-
-
-
-
-
-
-        //public async Task UpdateStatusAsync(int receiptId, ReceiptStatus newStatus, string adminUserId)
-        //{
-        //    try
-        //    {
-        //        // Beleg laden mit User-Daten
-        //        var receipt = await _context.Receipts
-        //            .Include(r => r.User)
-        //            .FirstOrDefaultAsync(r => r.Id == receiptId);
-
-        //        if (receipt == null)
-        //        {
-        //            _logger.LogWarning($"Receipt {receiptId} nicht gefunden für Status-Update");
-        //            throw new InvalidOperationException($"Beleg {receiptId} nicht gefunden");
-        //        }
-
-        //        // Alten Status speichern für Audit-Log
-        //        var oldStatus = receipt.Status;
-
-        //        // Status aktualisieren
-        //        receipt.Status = newStatus;
-        //        receipt.StatusChangedDate = DateTime.UtcNow;
-        //        await _context.SaveChangesAsync();
-
-        //        _logger.LogInformation($"Receipt {receiptId} Status von {oldStatus} auf {newStatus} durch {adminUserId} geändert");
-
-        //        // 🔍 AUDIT-LOG: Status geändert
-        //        await _auditLogService.LogAsync(
-        //            action: "StatusChanged",
-        //            entityType: "Receipt",
-        //            entityId: receiptId.ToString(),
-        //            actorUserId: adminUserId,
-        //            targetUserId: receipt.UserId,
-        //            detailsJson: $"{{\"OldStatus\": \"{oldStatus}\", \"NewStatus\": \"{newStatus}\"}}",
-        //            description: $"Status geändert: {oldStatus} → {newStatus} (Admin: {receipt.User?.Email})"
-        //        );
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, $"Fehler beim Status-Update für Receipt {receiptId}");
-        //        throw;
-        //    }
-        //}
-
+        public async Task UpdateReceiptAsync(Receipt receipt)
+        {
+            _context.Receipts.Update(receipt);
+            await _context.SaveChangesAsync();
+        }
 
         public async Task<string> GetReceiptFilePathAsync(int receiptId)
         {
@@ -441,44 +314,6 @@ namespace BelegErfassungApp.Services
             return fullPath;
         }
 
-        // Original bevor Implementation Audit Log
-        //public async Task DeleteReceiptAsync(int receiptId)
-        //{
-        //    try
-        //    {
-        //        // Beleg aus der Datenbank laden
-        //        var receipt = await _context.Receipts
-        //            .Include(r => r.User)  // Falls du auf User-Daten zugreifen musst
-        //            .FirstOrDefaultAsync(r => r.Id == receiptId);
-
-        //        if (receipt == null)
-        //        {
-        //            throw new InvalidOperationException($"Beleg mit ID {receiptId} nicht gefunden");
-        //        }
-
-        //        // Optional: Datei vom Dateisystem löschen
-        //        if (!string.IsNullOrEmpty(receipt.FilePath))
-        //        {
-        //            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), receipt.FilePath.TrimStart('/'));
-        //            if (File.Exists(fullPath))
-        //            {
-        //                File.Delete(fullPath);
-        //            }
-        //        }
-
-        //        // Beleg aus der Datenbank entfernen
-        //        _context.Receipts.Remove(receipt);
-
-        //        // Änderungen speichern
-        //        await _context.SaveChangesAsync();
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // Fehler loggen
-        //        Console.WriteLine($"Fehler beim Löschen des Belegs: {ex.Message}");
-        //        throw;
-        //    }
-        //}
         public async Task DeleteReceiptAsync(int receiptId, string adminUserId)
         {
             try
@@ -496,6 +331,17 @@ namespace BelegErfassungApp.Services
                 var fileName = receipt.FileName;
                 var userId = receipt.UserId;
                 var amount = receipt.ManualPrice;
+
+                // 🔥 NEU: Zuerst alle Kommentare zu diesem Beleg löschen
+                var comments = await _context.ReceiptComments
+                    .Where(c => c.ReceiptId == receiptId)
+                    .ToListAsync();
+
+                if (comments.Any())
+                {
+                    _context.ReceiptComments.RemoveRange(comments);
+                    _logger.LogInformation($"{comments.Count} Kommentare zu Receipt {receiptId} gelöscht");
+                }
 
                 // Optional: Datei vom Dateisystem löschen
                 if (!string.IsNullOrEmpty(receipt.FilePath))
@@ -521,8 +367,8 @@ namespace BelegErfassungApp.Services
                     entityId: receiptId.ToString(),
                     actorUserId: adminUserId,
                     targetUserId: userId,
-                    detailsJson: $"{{\"FileName\": \"{fileName}\", \"Amount\": {amount}}}",
-                    description: $"Beleg gelöscht: {fileName}"
+                    detailsJson: $"{{\"FileName\": \"{fileName}\", \"Amount\": {amount}, \"CommentsDeleted\": {comments.Count}}}",
+                    description: $"Beleg gelöscht: {fileName} (inkl. {comments.Count} Kommentare)"
                 );
             }
             catch (Exception ex)
@@ -532,27 +378,5 @@ namespace BelegErfassungApp.Services
             }
         }
 
-
-
-        //public async Task DeleteReceiptAsync(int receiptId)
-        //{
-        //    var receipt = await _context.Receipts.FindAsync(receiptId);
-        //    if (receipt != null)
-        //    {
-        //        // Datei löschen
-        //        var fullPath = Path.Combine(_environment.ContentRootPath, receipt.FilePath);
-        //        if (File.Exists(fullPath))
-        //        {
-        //            File.Delete(fullPath);
-        //            _logger.LogInformation($"Datei gelöscht: {receipt.FileName}");
-        //        }
-
-        //        // Datenbank-Eintrag löschen
-        //        _context.Receipts.Remove(receipt);
-        //        await _context.SaveChangesAsync();
-
-        //        _logger.LogInformation($"Receipt {receiptId} gelöscht");
-        //    }
-        //}
     }
 }
