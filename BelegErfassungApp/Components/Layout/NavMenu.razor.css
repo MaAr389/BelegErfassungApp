@@ -11,9 +11,9 @@
     background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.1);
 }
 
-.navbar-toggler:checked {
-    background-color: rgba(255, 255, 255, 0.5);
-}
+    .navbar-toggler:checked {
+        background-color: rgba(255, 255, 255, 0.5);
+    }
 
 .top-row {
     height: 3.5rem;
@@ -91,35 +91,48 @@
         width: 100%;
     }
 
-.nav-item ::deep a.active {
-    background-color: rgba(255,255,255,0.37);
-    color: white;
-}
+    .nav-item ::deep a.active {
+        background-color: rgba(255,255,255,0.37);
+        color: white;
+    }
 
-.nav-item ::deep .nav-link:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
-}
+    .nav-item ::deep .nav-link:hover {
+        background-color: rgba(255,255,255,0.1);
+        color: white;
+    }
 
 /* Collapsible Settings Styles */
 .settings-header {
     color: #d7d7d7;
     font-weight: 500;
+    padding: 0.5rem 0 !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    height: auto;
+    line-height: normal;
 }
 
-.settings-header:hover {
-    background-color: rgba(255,255,255,0.1);
-    color: white;
-}
+    .settings-header:hover {
+        background-color: rgba(255,255,255,0.1);
+        color: white;
+        border-radius: 4px;
+    }
 
 .settings-submenu {
     padding-left: 1rem;
     margin-top: 0.25rem;
+    display: block;
 }
 
 .submenu-link {
     font-size: 0.85rem;
-    padding-left: 0.5rem;
+    padding-left: 0.5rem !important;
     height: 2.5rem !important;
     line-height: 2.5rem !important;
 }
@@ -140,7 +153,6 @@
     .nav-scrollable {
         /* Never collapse the sidebar for wide screens */
         display: block;
-
         /* Allow sidebar to scroll for tall menus */
         height: calc(100vh - 3.5rem);
         overflow-y: auto;

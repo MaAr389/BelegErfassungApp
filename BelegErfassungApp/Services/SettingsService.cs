@@ -93,14 +93,14 @@ namespace BelegErfassungApp.Services
                 var csv = new StringBuilder();
 
                 // CSV Header
-                csv.AppendLine("Id;TimestampUtc;Action;EntityType;EntityId;ActorUserId;ActorEmail;TargetUserId;IpAddress;UserAgent;Description");
+                csv.AppendLine("Id;TimestampUtc;ActorUserId;ActorEmail;Action;EntityType;EntityId;Description");
 
                 // CSV Data
                 foreach (var log in logs)
                 {
-                    csv.AppendLine($"\"{log.Id}\";\"{log.TimestampUtc:yyyy-MM-dd HH:mm:ss}\";\"{EscapeCsv(log.Action)}\";\"{EscapeCsv(log.EntityType)}\";" +
-                                   $"\"{log.EntityId}\";\"{log.ActorUserId}\";\"{EscapeCsv(log.ActorEmail ?? "")}\";" +
-                                   $"\"{log.TargetUserId ?? ""}\";\"{log.IpAddress ?? ""}\";\"{log.UserAgent ?? ""}\";" +
+                    csv.AppendLine($"\"{log.Id}\";\"{log.TimestampUtc:yyyy-MM-dd HH:mm:ss}\";\"{log.ActorUserId ?? ""}\";" +
+                                   $"\"{EscapeCsv(log.ActorEmail ?? "")}\";\"{EscapeCsv(log.Action)}\";\"{EscapeCsv(log.EntityType)}\";" +
+                                   $"\"{log.EntityId ?? ""}\";" +
                                    $"\"{EscapeCsv(log.Description ?? "")}\"");
                 }
 
@@ -113,6 +113,7 @@ namespace BelegErfassungApp.Services
                 throw;
             }
         }
+
 
         /// <summary>
         /// Escapes special characters for CSV format.

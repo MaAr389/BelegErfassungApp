@@ -185,6 +185,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Identity
@@ -240,7 +243,7 @@ builder.Services.AddScoped<IReceiptCommentService, ReceiptCommentService>();
 
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
-
+builder.Services.AddScoped<SettingsService>();
 
 var app = builder.Build();
 
