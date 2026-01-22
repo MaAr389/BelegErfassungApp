@@ -243,7 +243,7 @@ builder.Services.AddScoped<IReceiptCommentService, ReceiptCommentService>();
 
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 
-builder.Services.AddScoped<SettingsService>();
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 
 var app = builder.Build();
 

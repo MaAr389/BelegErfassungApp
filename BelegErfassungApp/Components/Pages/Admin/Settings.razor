@@ -2,8 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using BelegErfassungApp.Services
 @attribute [Authorize(Roles = "Administrator")]
-
-@inject SettingsService SettingsService
+@inject ISettingsService SettingsService
 @inject IJSRuntime JS
 
 <PageTitle>Systemeinstellungen</PageTitle>
@@ -30,10 +29,10 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted">
-                        Diese Aktion löscht alle Belege, Kommentare und Audit-Logs aus der Datenbank. 
+                        Diese Aktion löscht alle Belege, Kommentare und Audit-Logs aus der Datenbank.
                         <strong>Benutzerdaten bleiben erhalten.</strong>
                     </p>
-                    
+
                     <div class="alert alert-warning" role="alert">
                         <strong>⚠️ Warnung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
                     </div>
@@ -45,6 +44,7 @@
                                 <span class="visually-hidden">Lädt...</span>
                             </div>
                         </div>
+                        <p class="text-center text-muted mt-2">Datenbank wird geleert...</p>
                     }
                     else if (!showConfirmReset)
                     {
@@ -57,10 +57,10 @@
                         <div class="alert alert-danger">
                             <p class="mb-2"><strong>Sind Sie sicher?</strong></p>
                             <p class="mb-3">Alle Belege und Logs werden dauerhaft gelöscht.</p>
-                            <button class="btn btn-danger me-2" @onclick="ResetDatabase">
+                            <button class="btn btn-danger me-2" @onclick="ResetDatabase" disabled="@isResetting">
                                 <span class="bi bi-check-circle"></span> Ja, Datenbank leeren
                             </button>
-                            <button class="btn btn-secondary" @onclick="CancelReset">
+                            <button class="btn btn-secondary" @onclick="CancelReset" disabled="@isResetting">
                                 <span class="bi bi-x-circle"></span> Abbrechen
                             </button>
                         </div>
@@ -69,7 +69,7 @@
                     @if (!string.IsNullOrEmpty(resetMessage))
                     {
                         <div class="alert @resetMessageClass mt-3" role="alert">
-                            @resetMessage
+                            @((MarkupString)resetMessage)
                         </div>
                     }
                 </div>
@@ -117,7 +117,7 @@
                     @if (!string.IsNullOrEmpty(exportMessage))
                     {
                         <div class="alert @exportMessageClass mt-3" role="alert">
-                            @exportMessage
+                            @((MarkupString)exportMessage)
                         </div>
                     }
                 </div>
@@ -131,7 +131,6 @@
     private bool isResetting = false;
     private string resetMessage = string.Empty;
     private string resetMessageClass = string.Empty;
-
     private bool isExporting = false;
     private int logCount = 0;
     private string exportMessage = string.Empty;
@@ -162,16 +161,17 @@
     {
         isResetting = true;
         resetMessage = string.Empty;
-        
+        StateHasChanged();  // ← KRITISCH! Spinner anzeigen
+
         try
         {
             var success = await SettingsService.ResetDatabaseAsync();
-            
+
             if (success)
             {
                 resetMessage = "✅ Datenbank erfolgreich geleert. Alle Belege und Logs wurden gelöscht.";
                 resetMessageClass = "alert-success";
-                await LoadLogCount(); // Refresh log count
+                await LoadLogCount();
             }
             else
             {
@@ -188,6 +188,7 @@
         {
             isResetting = false;
             showConfirmReset = false;
+            StateHasChanged();  // ← KRITISCH! UI aktualisieren
         }
     }
 
@@ -195,19 +196,20 @@
     {
         isExporting = true;
         exportMessage = string.Empty;
-        
+        StateHasChanged();  // ← UI aktualisieren
+
         try
         {
             var csvData = await SettingsService.ExportAuditLogsAsync();
-            
+
             if (!string.IsNullOrEmpty(csvData))
             {
                 var fileName = $"AuditLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                 var bytes = System.Text.Encoding.UTF8.GetBytes(csvData);
                 var base64 = Convert.ToBase64String(bytes);
-                
+
                 await JS.InvokeVoidAsync("downloadFile", fileName, base64);
-                
+
                 exportMessage = "✅ Logs erfolgreich exportiert.";
                 exportMessageClass = "alert-success";
             }
@@ -225,6 +227,137 @@
         finally
         {
             isExporting = false;
+            StateHasChanged();  // ← UI aktualisieren
         }
     }
 }
+
+
+
+@* @code {
+    private bool showConfirmReset = false;
+    private bool isResetting = false;
+    private string resetMessage = string.Empty;
+    private string resetMessageClass = string.Empty;
+    private bool isExporting = false;
+    private int logCount = 0;
+    private string exportMessage = string.Empty;
+    private string exportMessageClass = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogCount();
+    }
+
+    private async Task LoadLogCount()
+    {
+        try
+        {
+            logCount = await SettingsService.GetAuditLogCountAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading log count: {ex.Message}");
+        }
+    }
+
+    private void ShowConfirmReset()
+    {
+        showConfirmReset = true;
+        resetMessage = string.Empty;
+    }
+
+    private void CancelReset()
+    {
+        showConfirmReset = false;
+    }
+
+    private async Task ResetDatabase()
+    {
+        isResetting = true;
+        resetMessage = string.Empty;
+
+        try
+        {
+            Console.WriteLine("🗑️ Starting database reset...");
+
+            var success = await SettingsService.ResetDatabaseAsync();
+
+            if (success)
+            {
+                resetMessage = "✅ <strong>Datenbank erfolgreich geleert.</strong> Alle Belege und Logs wurden gelöscht.";
+                resetMessageClass = "alert-success";
+                await LoadLogCount(); // Refresh log count
+
+                // Nach erfolgreicher Löschung kurz den Bestätigungsdialog anzeigen lassen
+                await Task.Delay(1000);
+                showConfirmReset = false;
+            }
+            else
+            {
+                resetMessage = "❌ <strong>Fehler beim Leeren der Datenbank.</strong> Bitte überprüfe die Server-Logs für mehr Details.";
+                resetMessageClass = "alert-danger";
+                Console.WriteLine("❌ Database reset returned false");
+            }
+        }
+        catch (Exception ex)
+        {
+            resetMessage = $"❌ <strong>Fehler:</strong> {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                resetMessage += $"<br/><small>Details: {ex.InnerException.Message}</small>";
+            }
+            resetMessageClass = "alert-danger";
+            Console.WriteLine($"❌ Exception during reset: {ex}");
+        }
+        finally
+        {
+            isResetting = false;
+        }
+    }
+
+    private async Task ExportLogs()
+    {
+        isExporting = true;
+        exportMessage = string.Empty;
+
+        try
+        {
+            Console.WriteLine("📥 Starting audit log export...");
+
+            var csvData = await SettingsService.ExportAuditLogsAsync();
+
+            if (!string.IsNullOrEmpty(csvData))
+            {
+                var fileName = $"AuditLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                var bytes = System.Text.Encoding.UTF8.GetBytes(csvData);
+                var base64 = Convert.ToBase64String(bytes);
+
+                await JS.InvokeVoidAsync("downloadFile", fileName, base64);
+
+                exportMessage = $"✅ <strong>Logs erfolgreich exportiert.</strong> ({bytes.Length / 1024} KB)";
+                exportMessageClass = "alert-success";
+                Console.WriteLine("✅ Logs exported successfully");
+            }
+            else
+            {
+                exportMessage = "⚠️ <strong>Keine Logs zum Exportieren vorhanden.</strong>";
+                exportMessageClass = "alert-warning";
+            }
+        }
+        catch (Exception ex)
+        {
+            exportMessage = $"❌ <strong>Fehler beim Export:</strong> {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                exportMessage += $"<br/><small>Details: {ex.InnerException.Message}</small>";
+            }
+            exportMessageClass = "alert-danger";
+            Console.WriteLine($"❌ Exception during export: {ex}");
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+} *@

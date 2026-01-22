@@ -78,7 +78,8 @@ namespace BelegErfassungApp.Data
                 .HasOne(rc => rc.Receipt)
                 .WithMany()
                 .HasForeignKey(rc => rc.ReceiptId)
-                .OnDelete(DeleteBehavior.Restrict);
+                //.OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<ReceiptComment>()
                 .HasOne(rc => rc.User)
