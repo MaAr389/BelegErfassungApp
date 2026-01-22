@@ -80,13 +80,15 @@
                     <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege
                 </NavLink>
             </div>
-            
+
             <!-- Einstellungen - Collapsible Section -->
             <div class="nav-item px-3">
-                <div class="nav-link settings-header" @onclick="ToggleSettings" style="cursor: pointer;">
-                    <span class="bi bi-gear-fill" aria-hidden="true"></span> Einstellungen
-                    <span class="bi @(settingsExpanded ? "bi-chevron-down" : "bi-chevron-right")" style="float: right;"></span>
-                </div>
+                <button class="nav-link settings-header" @onclick="ToggleSettings" style="width: 100%; text-align: left; border: none; background: none; padding: 0.5rem 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                    <span>
+                        <span class="bi bi-gear-fill" aria-hidden="true"></span> Einstellungen
+                    </span>
+                    <span class="bi @(settingsExpanded ? "bi-chevron-down" : "bi-chevron-right")"></span>
+                </button>
                 @if (settingsExpanded)
                 {
                     <div class="settings-submenu">
@@ -121,10 +123,10 @@
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
-        
+
         // Auto-expand settings if on a settings page
-        if (currentUrl != null && (currentUrl.Contains("admin/users") || 
-                                    currentUrl.Contains("admin/auditlog") || 
+        if (currentUrl != null && (currentUrl.Contains("admin/users") ||
+                                    currentUrl.Contains("admin/auditlog") ||
                                     currentUrl.Contains("admin/settings")))
         {
             settingsExpanded = true;
@@ -134,15 +136,15 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-        
+
         // Auto-expand settings if navigating to a settings page
-        if (currentUrl != null && (currentUrl.Contains("admin/users") || 
-                                    currentUrl.Contains("admin/auditlog") || 
+        if (currentUrl != null && (currentUrl.Contains("admin/users") ||
+                                    currentUrl.Contains("admin/auditlog") ||
                                     currentUrl.Contains("admin/settings")))
         {
             settingsExpanded = true;
         }
-        
+
         StateHasChanged();
     }
 
