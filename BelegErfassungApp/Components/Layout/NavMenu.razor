@@ -1,4 +1,4 @@
-﻿@implements IDisposable
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
 
@@ -77,18 +77,36 @@
             </div>
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="admin/allreceipts">
-                    <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege (Admin)
+                    <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege
                 </NavLink>
             </div>
+            
+            <!-- Einstellungen - Collapsible Section -->
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/users">
-                    <span class="bi bi-people-fill" aria-hidden="true"></span> Benutzerverwaltung
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/auditlog">
-                    <span class="bi bi-folder" aria-hidden="true"></span> Logs (Admin)
-                </NavLink>
+                <div class="nav-link settings-header" @onclick="ToggleSettings" style="cursor: pointer;">
+                    <span class="bi bi-gear-fill" aria-hidden="true"></span> Einstellungen
+                    <span class="bi @(settingsExpanded ? "bi-chevron-down" : "bi-chevron-right")" style="float: right;"></span>
+                </div>
+                @if (settingsExpanded)
+                {
+                    <div class="settings-submenu">
+                        <div class="nav-item">
+                            <NavLink class="nav-link submenu-link" href="admin/users">
+                                <span class="bi bi-people-fill" aria-hidden="true"></span> Benutzerverwaltung
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link submenu-link" href="admin/auditlog">
+                                <span class="bi bi-file-text" aria-hidden="true"></span> Audit Logs
+                            </NavLink>
+                        </div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link submenu-link" href="admin/settings">
+                                <span class="bi bi-sliders" aria-hidden="true"></span> Systemeinstellungen
+                            </NavLink>
+                        </div>
+                    </div>
+                }
             </div>
         </AuthorizeView>
 
@@ -97,17 +115,40 @@
 
 @code {
     private string? currentUrl;
+    private bool settingsExpanded = false;
 
     protected override void OnInitialized()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         NavigationManager.LocationChanged += OnLocationChanged;
+        
+        // Auto-expand settings if on a settings page
+        if (currentUrl != null && (currentUrl.Contains("admin/users") || 
+                                    currentUrl.Contains("admin/auditlog") || 
+                                    currentUrl.Contains("admin/settings")))
+        {
+            settingsExpanded = true;
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        
+        // Auto-expand settings if navigating to a settings page
+        if (currentUrl != null && (currentUrl.Contains("admin/users") || 
+                                    currentUrl.Contains("admin/auditlog") || 
+                                    currentUrl.Contains("admin/settings")))
+        {
+            settingsExpanded = true;
+        }
+        
         StateHasChanged();
+    }
+
+    private void ToggleSettings()
+    {
+        settingsExpanded = !settingsExpanded;
     }
 
     public void Dispose()
