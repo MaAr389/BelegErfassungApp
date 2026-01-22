@@ -1,0 +1,230 @@
+@page "/admin/settings"
+@using Microsoft.AspNetCore.Authorization
+@using BelegErfassungApp.Services
+@attribute [Authorize(Roles = "Administrator")]
+
+@inject SettingsService SettingsService
+@inject IJSRuntime JS
+
+<PageTitle>Systemeinstellungen</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <span class="bi bi-sliders" style="margin-right: 10px;"></span>
+                Systemeinstellungen
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Datenbank-Verwaltung -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <span class="bi bi-database" style="margin-right: 8px;"></span>
+                        Datenbank-Verwaltung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Diese Aktion löscht alle Belege, Kommentare und Audit-Logs aus der Datenbank. 
+                        <strong>Benutzerdaten bleiben erhalten.</strong>
+                    </p>
+                    
+                    <div class="alert alert-warning" role="alert">
+                        <strong>⚠️ Warnung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                    </div>
+
+                    @if (isResetting)
+                    {
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-warning" role="status">
+                                <span class="visually-hidden">Lädt...</span>
+                            </div>
+                        </div>
+                    }
+                    else if (!showConfirmReset)
+                    {
+                        <button class="btn btn-warning" @onclick="ShowConfirmReset">
+                            <span class="bi bi-trash"></span> Datenbank leeren
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger">
+                            <p class="mb-2"><strong>Sind Sie sicher?</strong></p>
+                            <p class="mb-3">Alle Belege und Logs werden dauerhaft gelöscht.</p>
+                            <button class="btn btn-danger me-2" @onclick="ResetDatabase">
+                                <span class="bi bi-check-circle"></span> Ja, Datenbank leeren
+                            </button>
+                            <button class="btn btn-secondary" @onclick="CancelReset">
+                                <span class="bi bi-x-circle"></span> Abbrechen
+                            </button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(resetMessage))
+                    {
+                        <div class="alert @resetMessageClass mt-3" role="alert">
+                            @resetMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Log-Export -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <span class="bi bi-file-earmark-arrow-down" style="margin-right: 8px;"></span>
+                        Log-Export
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Exportieren Sie alle Audit-Logs als CSV-Datei für Archivierungs- oder Analysezwecke.
+                    </p>
+
+                    <div class="mb-3">
+                        <strong>Statistik:</strong>
+                        <p class="mb-1">Anzahl der Log-Einträge: <span class="badge bg-info">@logCount</span></p>
+                    </div>
+
+                    @if (isExporting)
+                    {
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Exportiere...</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary" @onclick="ExportLogs" disabled="@(logCount == 0)">
+                            <span class="bi bi-download"></span> Logs herunterladen (CSV)
+                        </button>
+                        @if (logCount == 0)
+                        {
+                            <p class="text-muted mt-2"><small>Keine Logs vorhanden.</small></p>
+                        }
+                    }
+
+                    @if (!string.IsNullOrEmpty(exportMessage))
+                    {
+                        <div class="alert @exportMessageClass mt-3" role="alert">
+                            @exportMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool showConfirmReset = false;
+    private bool isResetting = false;
+    private string resetMessage = string.Empty;
+    private string resetMessageClass = string.Empty;
+
+    private bool isExporting = false;
+    private int logCount = 0;
+    private string exportMessage = string.Empty;
+    private string exportMessageClass = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLogCount();
+    }
+
+    private async Task LoadLogCount()
+    {
+        logCount = await SettingsService.GetAuditLogCountAsync();
+    }
+
+    private void ShowConfirmReset()
+    {
+        showConfirmReset = true;
+        resetMessage = string.Empty;
+    }
+
+    private void CancelReset()
+    {
+        showConfirmReset = false;
+    }
+
+    private async Task ResetDatabase()
+    {
+        isResetting = true;
+        resetMessage = string.Empty;
+        
+        try
+        {
+            var success = await SettingsService.ResetDatabaseAsync();
+            
+            if (success)
+            {
+                resetMessage = "✅ Datenbank erfolgreich geleert. Alle Belege und Logs wurden gelöscht.";
+                resetMessageClass = "alert-success";
+                await LoadLogCount(); // Refresh log count
+            }
+            else
+            {
+                resetMessage = "❌ Fehler beim Leeren der Datenbank.";
+                resetMessageClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            resetMessage = $"❌ Fehler: {ex.Message}";
+            resetMessageClass = "alert-danger";
+        }
+        finally
+        {
+            isResetting = false;
+            showConfirmReset = false;
+        }
+    }
+
+    private async Task ExportLogs()
+    {
+        isExporting = true;
+        exportMessage = string.Empty;
+        
+        try
+        {
+            var csvData = await SettingsService.ExportAuditLogsAsync();
+            
+            if (!string.IsNullOrEmpty(csvData))
+            {
+                var fileName = $"AuditLogs_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                var bytes = System.Text.Encoding.UTF8.GetBytes(csvData);
+                var base64 = Convert.ToBase64String(bytes);
+                
+                await JS.InvokeVoidAsync("downloadFile", fileName, base64);
+                
+                exportMessage = "✅ Logs erfolgreich exportiert.";
+                exportMessageClass = "alert-success";
+            }
+            else
+            {
+                exportMessage = "⚠️ Keine Logs zum Exportieren vorhanden.";
+                exportMessageClass = "alert-warning";
+            }
+        }
+        catch (Exception ex)
+        {
+            exportMessage = $"❌ Fehler beim Export: {ex.Message}";
+            exportMessageClass = "alert-danger";
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+}
