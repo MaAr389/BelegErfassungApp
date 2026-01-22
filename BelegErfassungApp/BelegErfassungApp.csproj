@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-BelegErfassungApp-c4340063-29d7-4e20-8f62-627a2c398908</UserSecretsId>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/MaAr389/BelegErfassungApp.git</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>

@@ -81,168 +81,6 @@
                 </NavLink>
             </div>
 
-            <!-- Einstellungen - Collapsible Section -->
-            <div class="nav-item px-3">
-                <button class="nav-link settings-header" @onclick="ToggleSettings" style="width: 100%; text-align: left; border: none; background: none; padding: 0.5rem 0; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                    <span>
-                        <span class="bi bi-gear-fill" aria-hidden="true"></span> Einstellungen
-                    </span>
-                    <span class="bi @(settingsExpanded ? "bi-chevron-down" : "bi-chevron-right")"></span>
-                </button>
-                @if (settingsExpanded)
-                {
-                    <div class="settings-submenu">
-                        <div class="nav-item">
-                            <NavLink class="nav-link submenu-link" href="admin/users">
-                                <span class="bi bi-people-fill" aria-hidden="true"></span> Benutzerverwaltung
-                            </NavLink>
-                        </div>
-                        <div class="nav-item">
-                            <NavLink class="nav-link submenu-link" href="admin/auditlog">
-                                <span class="bi bi-file-text" aria-hidden="true"></span> Audit Logs
-                            </NavLink>
-                        </div>
-                        <div class="nav-item">
-                            <NavLink class="nav-link submenu-link" href="admin/settings">
-                                <span class="bi bi-sliders" aria-hidden="true"></span> Systemeinstellungen
-                            </NavLink>
-                        </div>
-                    </div>
-                }
-            </div>
-        </AuthorizeView>
-
-    </nav>
-</div>
-
-@code {
-    private string? currentUrl;
-    private bool settingsExpanded = false;
-
-    protected override void OnInitialized()
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        NavigationManager.LocationChanged += OnLocationChanged;
-
-        // Auto-expand settings if on a settings page
-        if (currentUrl != null && (currentUrl.Contains("admin/users") ||
-                                    currentUrl.Contains("admin/auditlog") ||
-                                    currentUrl.Contains("admin/settings")))
-        {
-            settingsExpanded = true;
-        }
-    }
-
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-
-        // Auto-expand settings if navigating to a settings page
-        if (currentUrl != null && (currentUrl.Contains("admin/users") ||
-                                    currentUrl.Contains("admin/auditlog") ||
-                                    currentUrl.Contains("admin/settings")))
-        {
-            settingsExpanded = true;
-        }
-
-        StateHasChanged();
-    }
-
-    private void ToggleSettings()
-    {
-        settingsExpanded = !settingsExpanded;
-    }
-
-    public void Dispose()
-    {
-        NavigationManager.LocationChanged -= OnLocationChanged;
-    }
-}
- *@
-
-@implements IDisposable
-
-@inject NavigationManager NavigationManager
-
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">App</a>
-    </div>
-</div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-
-    <nav class="flex-column">
-
-        <!-- Home-Link: Rollenabhängig -->
-        <AuthorizeView Roles="Administrator,Mitglied">
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
-                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-                    </NavLink>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-
-        <!-- Login/Logout -->
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
-                        </button>
-                    </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-
-        <!-- Mitglieder & Admin -->
-        <AuthorizeView Roles="Mitglied,Administrator">
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="MyReceipts">
-                    <span class="bi bi-receipt" aria-hidden="true"></span> Meine Belege
-                </NavLink>
-            </div>
-        </AuthorizeView>
-
-        <!-- Nur Admin -->
-        <AuthorizeView Roles="Administrator">
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="/admin/dashboard">
-                    <span class="bi bi-graph-up" aria-hidden="true"></span> Dashboard
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="admin/allreceipts">
-                    <span class="bi bi-folder" aria-hidden="true"></span> Alle Belege
-                </NavLink>
-            </div>
-
             <!-- Einstellungen - EINFACHE LINKS -->
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="admin/users">
@@ -261,6 +99,133 @@
             </div>
         </AuthorizeView>
 
+    </nav>
+</div>
+
+@code {
+    private string? currentUrl;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}
+ *@
+
+@* Blazor NavMenu Component *@
+@implements IDisposable
+@inject NavigationManager NavigationManager
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <!-- === HOME (Alle User) === -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill nav-menu"></span> Home
+            </NavLink>
+        </div>
+
+        <!-- === FÜR MITGLIEDER === -->
+        <AuthorizeView Roles="Mitglied">
+            <Authorized>
+                <!-- Meine Belege -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/myreceipts">
+                        <span class="bi bi-file-earmark nav-menu"></span> Meine Belege
+                    </NavLink>
+                </div>
+
+                <!-- Mein Profil -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/Account/Manage">
+                        <span class="bi bi-person-fill nav-menu"></span> Mein Profil
+                    </NavLink>
+                </div>
+
+                <!-- Logout -->
+                <div class="nav-item px-3">
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                        <button type="submit" class="nav-link" style="border: none; background: none; cursor: pointer; text-align: left; width: 100%;">
+                            <span class="bi bi-arrow-bar-left nav-menu" aria-hidden="true"></span> Logout
+                        </button>
+                    </form>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+
+        <!-- === FÜR ADMINS === -->
+        <AuthorizeView Roles="Administrator">
+            <Authorized>
+                <!-- Meine Belege -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/myreceipts">
+                        <span class="bi bi-file-earmark nav-menu"></span> Meine Belege
+                    </NavLink>
+                </div>
+
+                <!-- Alle Belege -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/admin/allreceipts">
+                        <span class="bi bi-collection nav-menu"></span> Alle Belege
+                    </NavLink>
+                </div>
+
+                <!-- Audit Logs -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/admin/auditlog">
+                        <span class="bi bi-journal-text nav-menu"></span> Audit Logs
+                    </NavLink>
+                </div>
+
+                <!-- Benutzerverwaltung -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/admin/users">
+                        <span class="bi bi-people-fill nav-menu"></span> Benutzerverwaltung
+                    </NavLink>
+                </div>
+
+                <!-- Systemeinstellungen -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/admin/settings">
+                        <span class="bi bi-gear-fill nav-menu"></span> Systemeinstellungen
+                    </NavLink>
+                </div>
+
+                <!-- Mein Profil -->
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/Account/Manage">
+                        <span class="bi bi-person-fill nav-menu"></span> Mein Profil
+                    </NavLink>
+                </div>
+
+                <!-- Logout -->
+                <div class="nav-item px-3">
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                        <button type="submit" class="nav-link" style="border: none; background: none; cursor: pointer; text-align: left; width: 100%;">
+                            <span class="bi bi-arrow-bar-left nav-menu" aria-hidden="true"></span> Logout
+                        </button>
+                    </form>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </nav>
 </div>
 

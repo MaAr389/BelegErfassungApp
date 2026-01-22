@@ -1,11 +1,13 @@
 ﻿@page "/admin/allreceipts"
 @rendermode InteractiveServer
+
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authorization
 @using BelegErfassungApp.Data
 @using BelegErfassungApp.Services
 @using BelegErfassungApp.Components.Account.Shared
 @using Microsoft.AspNetCore.Components.Authorization
+
 @attribute [Authorize(Roles = "Administrator")]
 
 @inject IReceiptService ReceiptService
@@ -13,17 +15,18 @@
 
 <PageTitle>Alle Belege (Admin)</PageTitle>
 
-<h3>Belegverwaltung - Alle Belege</h3>
+<h3>Alle Belege</h3>
 
 <div class="row mb-3">
     <div class="col-md-3">
-        <div class="card text-white bg-secondary mb-2">
+        <div class="card text-white bg-warning mb-2">
             <div class="card-body">
                 <h6 class="card-title mb-1">Offen</h6>
                 <span class="fs-4">@receipts.Count(r => r.Status == ReceiptStatus.Offen)</span>
             </div>
         </div>
     </div>
+
     <div class="col-md-3">
         <div class="card text-white bg-info mb-2">
             <div class="card-body">
@@ -32,6 +35,7 @@
             </div>
         </div>
     </div>
+
     <div class="col-md-3">
         <div class="card text-white bg-success mb-2">
             <div class="card-body">
@@ -40,6 +44,7 @@
             </div>
         </div>
     </div>
+
     <div class="col-md-3">
         <div class="card text-white bg-primary mb-2">
             <div class="card-body">
@@ -62,9 +67,9 @@
 
 @if (filteredReceipts.Any())
 {
-    <div class="table-responsive">
+    <div class="table-responsive mt-2">
         <table class="table table-striped table-hover table-sm align-middle">
-            <thead class="table-dark">
+            <thead class="table-light">
                 <tr>
                     <th>ID</th>
                     <th>Benutzer</th>
@@ -140,7 +145,6 @@ else
     </div>
 }
 
-@* Detail-Modal mit Kommentaren *@
 @if (showDetailsPopup && selectedReceipt != null)
 {
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -151,7 +155,6 @@ else
                     <button type="button" class="btn-close" @onclick="CloseDetailsPopup"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Header mit Edit-Button -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="mb-0">Belegdetails</h6>
                         @if (!isEditMode)
@@ -173,7 +176,6 @@ else
                         }
                     </div>
 
-                    <!-- Warnung bei niedriger Konfidenz -->
                     @if (selectedReceipt.OcrConfidence.HasValue && selectedReceipt.OcrConfidence.Value < 0.6 && !isEditMode)
                     {
                         <div class="alert alert-warning">
@@ -188,7 +190,6 @@ else
 
                     @if (!isEditMode)
                     {
-                        <!-- Normale Ansicht (2 Tabellen) -->
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <table class="table table-sm">
@@ -265,7 +266,6 @@ else
                     }
                     else
                     {
-                        <!-- Edit-Formular -->
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
                             <strong>Bearbeitungsmodus:</strong> Korrigiere die OCR-Ergebnisse manuell.
@@ -276,27 +276,22 @@ else
                                 <label class="form-label">Belegdatum</label>
                                 <input type="date" class="form-control" @bind="editReceipt.ReceiptDate" />
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Preis (€)</label>
                                 <input type="number" step="0.01" class="form-control" @bind="editReceipt.ManualPrice" />
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">OCR Bruttobetrag (€)</label>
                                 <input type="number" step="0.01" class="form-control" @bind="editReceipt.OcrGrossAmount" />
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">OCR Nettobetrag (€)</label>
                                 <input type="number" step="0.01" class="form-control" @bind="editReceipt.OcrNetAmount" />
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">OCR MwSt. (€)</label>
                                 <input type="number" step="0.01" class="form-control" @bind="editReceipt.OcrVatAmount" />
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Belegdatum (OCR)</label>
                                 <input type="date" class="form-control" @bind="editReceipt.OcrReceiptDate" />
@@ -304,7 +299,6 @@ else
                         </div>
                     }
 
-                    <!-- Belegvorschau -->
                     <div class="row mb-3">
                         <div class="col-12">
                             <h6>Belegvorschau</h6>
@@ -312,7 +306,6 @@ else
                                 <div class="card-body text-center">
                                     @if (selectedReceipt.FilePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                                     {
-                                        <!-- PDF Vorschau -->
                                         <iframe src="@GetReceiptUrl(selectedReceipt.FilePath)"
                                                 style="width: 100%; height: 600px; border: 1px solid #ddd;"
                                                 title="PDF Vorschau">
@@ -327,7 +320,6 @@ else
                                     }
                                     else
                                     {
-                                        <!-- Bild Vorschau -->
                                         <img src="@GetReceiptUrl(selectedReceipt.FilePath)"
                                              alt="Beleg"
                                              class="img-fluid"
@@ -346,7 +338,6 @@ else
                     </div>
 
                     <hr class="my-4" />
-
                     <ReceiptCommentSection ReceiptId="@selectedReceipt.Id" />
                 </div>
                 <div class="modal-footer">
@@ -357,7 +348,6 @@ else
     </div>
 }
 
-@* Lösch-Dialog *@
 @if (showDeleteConfirmation && receiptToDelete != null)
 {
     <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -421,15 +411,12 @@ else
     private List<Receipt> receipts = new();
     private IEnumerable<Receipt> filteredReceipts = new List<Receipt>();
     private string? selectedStatus;
-
     private bool showDetailsPopup = false;
     private Receipt? selectedReceipt;
-
     private bool showDeleteConfirmation = false;
     private Receipt? receiptToDelete;
     private bool isDeleting = false;
 
-    // Edit-Mode für manuelle Bearbeitung
     private bool isEditMode = false;
     private Receipt? editReceipt = null;
 
@@ -507,7 +494,7 @@ else
     {
         selectedReceipt = receipts.FirstOrDefault(r => r.Id == receiptId);
         showDetailsPopup = selectedReceipt != null;
-        isEditMode = false; // Immer im View-Mode starten
+        isEditMode = false;
         editReceipt = null;
     }
 
@@ -594,7 +581,6 @@ else
 
         try
         {
-            // Aktualisiere nur die editierbaren Felder
             selectedReceipt.ReceiptDate = editReceipt.ReceiptDate;
             selectedReceipt.ManualPrice = editReceipt.ManualPrice;
             selectedReceipt.OcrGrossAmount = editReceipt.OcrGrossAmount;
@@ -602,15 +588,12 @@ else
             selectedReceipt.OcrVatAmount = editReceipt.OcrVatAmount;
             selectedReceipt.OcrReceiptDate = editReceipt.OcrReceiptDate;
 
-            // Speichern
             await ReceiptService.UpdateReceiptAsync(selectedReceipt);
 
             isEditMode = false;
             editReceipt = null;
 
-            // Liste neu laden
             await LoadReceipts();
-
             await JSRuntime.InvokeVoidAsync("alert", "Änderungen erfolgreich gespeichert!");
         }
         catch (Exception ex)
@@ -624,12 +607,15 @@ else
         if (receiptToDelete == null) return;
 
         isDeleting = true;
+
         try
         {
             var adminUserId = await GetCurrentAdminUserIdAsync();
             await ReceiptService.DeleteReceiptAsync(receiptToDelete.Id, adminUserId);
+
             showDeleteConfirmation = false;
             receiptToDelete = null;
+
             await LoadReceipts();
         }
         catch (Exception ex)

@@ -23,7 +23,7 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Expose ports (HTTP und HTTPS)
-EXPOSE 80 443
+# EXPOSE 80 443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
