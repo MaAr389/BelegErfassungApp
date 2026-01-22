@@ -101,6 +101,29 @@
     color: white;
 }
 
+/* Collapsible Settings Styles */
+.settings-header {
+    color: #d7d7d7;
+    font-weight: 500;
+}
+
+.settings-header:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.settings-submenu {
+    padding-left: 1rem;
+    margin-top: 0.25rem;
+}
+
+.submenu-link {
+    font-size: 0.85rem;
+    padding-left: 0.5rem;
+    height: 2.5rem !important;
+    line-height: 2.5rem !important;
+}
+
 .nav-scrollable {
     display: none;
 }
