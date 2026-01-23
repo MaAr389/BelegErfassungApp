@@ -19,6 +19,7 @@ services:
         condition: service_healthy
     networks:
       - default
+      - proxy
     volumes:
       - dpkeys:/root/.aspnet/DataProtection-Keys
 
@@ -45,6 +46,9 @@ services:
 networks:
   belegverwaltung_network:
     driver: bridge
+  proxy:
+    external: true
+  
 
 volumes:
   mssql_data:
