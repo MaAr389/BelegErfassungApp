@@ -221,7 +221,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true; // Cookie nicht per JavaScript zugreifbar
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Nur über HTTPS
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // Nur über HTTPS
     options.Cookie.SameSite = SameSiteMode.Lax; // CSRF-Schutz
     options.ExpireTimeSpan = TimeSpan.FromMinutes(30); // Nach 30 Min Inaktivität ausloggen
     options.SlidingExpiration = true; // Verlängert Cookie bei Aktivität
