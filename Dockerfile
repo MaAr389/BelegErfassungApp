@@ -1,4 +1,4 @@
-# Multi-stage build für Blazor Server App (ASP.NET Core 8)
+ï»¿# Multi-stage build fï¿½r Blazor Server App (ASP.NET Core 8)
 
 # Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -26,12 +26,15 @@ COPY --from=publish /app/publish .
 # EXPOSE 80 443
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD dotnet --version || exit 1
+#HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#  CMD dotnet --version || exit 1
 
 # Set environment for production
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://+:80
+ENV ASPNETCORE_URLS=http://0.0.0.0:80
+
+# Install Tools
+RUN apt-get update && apt-get install -y curl net-tools && rm -rf /var/lib/apt/lists/*
 
 # Entry point
 ENTRYPOINT ["dotnet", "BelegErfassungApp.dll"]

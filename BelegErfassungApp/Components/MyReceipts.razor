@@ -414,8 +414,8 @@
         [Required(ErrorMessage = "Belegdatum ist erforderlich")]
         public DateTime ReceiptDate { get; set; } = DateTime.Today;
 
-        [Required(ErrorMessage = "Manueller Preis ist erforderlich")]
-        [Range(0.01, 999999.99, ErrorMessage = "Preis muss zwischen 0,01 und 999.999,99 liegen")]
+        //[Required(ErrorMessage = "Manueller Preis ist erforderlich")]
+        //[Range(0.01, 999999.99, ErrorMessage = "Preis muss zwischen 0,01 und 999.999,99 liegen")]
         public decimal ManualPrice { get; set; }
     }
 }

@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: belege-db-dev
+    mem_limit: 2g
+    environment:
+      - MSSQL_SA_PASSWORD=${SQL_PASSWORD}
+      - ACCEPT_EULA=Y
+      - MSSQL_PID=Developer
+      - MSSQL_MEMORY_LIMIT_MB=1536
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - dev-net
+    volumes:
+      - dev_mssql_data:/var/opt/mssql
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: belege-app-dev
+    mem_limit: 768m
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
+      - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
+      - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - dev-net
+    volumes:
+      - dpkeys:/root/.aspnet/DataProtection-Keys
+
+networks:
+  dev-net:
+
+volumes:
+  dev_mssql_data:
+  dpkeys:

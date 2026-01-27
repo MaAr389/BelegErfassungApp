@@ -1,31 +1,7 @@
 services:
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: belegverwaltung_app
-    env_file:
-      - .env
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:80
-      - ConnectionStrings__DefaultConnection=Server=db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
-      - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
-      - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
-    ports:
-      - "5000:80"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - default
-      - proxy
-    volumes:
-      - dpkeys:/root/.aspnet/DataProtection-Keys
-
-  db:
+  belege-db:
     image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: belegverwaltung_db
+    container_name: belege-db
     environment:
       - MSSQL_SA_PASSWORD=${SQL_PASSWORD}
       - ACCEPT_EULA=Y
@@ -33,25 +9,59 @@ services:
     ports:
       - "1433:1433"
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${SQL_PASSWORD}", "-Q", "SELECT 1 FROM sys.databases WHERE name='BelegverwaltungDb'"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
     networks:
-      - default
+      - belege-net
     volumes:
       - mssql_data:/var/opt/mssql
 
-networks:
-  belegverwaltung_network:
-    driver: bridge
-  proxy:
-    external: true
-  
+
+  belege:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: belege-app
+    env_file:
+      - .env
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://0.0.0.0:80
+      - ConnectionStrings__DefaultConnection=Server=belege-db,1433;Database=BelegverwaltungDb;User Id=sa;Password=${SQL_PASSWORD};Encrypt=false;TrustServerCertificate=true;
+      - AzureDocumentIntelligence__Endpoint=${AZURE_ENDPOINT}
+      - AzureDocumentIntelligence__ApiKey=${AZURE_API_KEY}
+#    ports:
+#      - "5000:80"
+    depends_on:
+      belege-db:
+        condition: service_healthy
+    networks:
+      - belege-net
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.belege.entrypoints=websecure"
+      - "traefik.http.routers.belege.rule=Host(`YOUR_DOMAIN`)"
+      - "traefik.http.routers.belege.middlewares=default@file"
+      - "traefik.http.routers.belege.tls=true"
+      - "traefik.http.routers.belege.tls.certresolver=http_resolver"
+      - "traefik.http.routers.belege.service=belege"
+      - "traefik.http.services.belege.loadbalancer.server.port=80"
+      - "traefik.http.services.belege.loadbalancer.serversTransport=insecure-transport@file"
+    volumes:
+      - dpkeys:/root/.aspnet/DataProtection-Keys
 
 volumes:
   mssql_data:
     driver: local
   dpkeys:
     driver: local
+
+networks:
+  belege-net:
+  proxy:
+    external: true
