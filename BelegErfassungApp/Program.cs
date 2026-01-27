@@ -162,6 +162,7 @@ using BelegErfassungApp.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -251,6 +252,12 @@ builder.Services.AddScoped<ISettingsService, SettingsService>();
 
 var app = builder.Build();
 
+// Forwarded Headers MUSS vor Authentication/Authorization
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
 // Seed Database
 using (var scope = app.Services.CreateScope())
 {
@@ -323,6 +330,8 @@ builder.Configuration.AddEnvironmentVariables();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+
+app.UseAuthorization();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
