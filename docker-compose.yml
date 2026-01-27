@@ -50,7 +50,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.routers.belege.entrypoints=websecure"
-      - "traefik.http.routers.belege.rule=Host(`YOUR_DOMAIN`)"
+      - "traefik.http.routers.belege.rule=Host(`${TRAEFIK_HOST}`)"
       - "traefik.http.routers.belege.middlewares=default@file"
       - "traefik.http.routers.belege.tls=true"
       - "traefik.http.routers.belege.tls.certresolver=http_resolver"
