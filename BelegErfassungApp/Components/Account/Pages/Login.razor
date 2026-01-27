@@ -227,7 +227,8 @@
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
-            RedirectManager.RedirectTo(ReturnUrl);
+            // RedirectManager.RedirectTo(ReturnUrl);
+            RedirectManager.RedirectTo("/dashboard/");
         }
         else if (result.RequiresTwoFactor)
         {

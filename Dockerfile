@@ -1,6 +1,4 @@
-﻿# Multi-stage build f�r Blazor Server App (ASP.NET Core 8)
-
-# Stage 1: Build
+﻿# Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
@@ -21,13 +19,6 @@ RUN dotnet publish "BelegErfassungApp.csproj" -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=publish /app/publish .
-
-# Expose ports (HTTP und HTTPS)
-# EXPOSE 80 443
-
-# Health check
-#HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-#  CMD dotnet --version || exit 1
 
 # Set environment for production
 ENV ASPNETCORE_ENVIRONMENT=Production
