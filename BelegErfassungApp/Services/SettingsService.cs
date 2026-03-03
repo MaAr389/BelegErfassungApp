@@ -35,6 +35,7 @@ namespace BelegErfassungApp.Services
                 await context.Database.ExecuteSqlRawAsync("DELETE FROM ReceiptComments");
                 await context.Database.ExecuteSqlRawAsync("DELETE FROM Receipts");
                 await context.Database.ExecuteSqlRawAsync("DELETE FROM AuditLogs");
+                await context.Database.ExecuteSqlRawAsync("DELETE FROM MemberApplications");
 
                 _logger.LogWarning("✅ ResetDatabaseAsync SUCCESS - SQL executed");
                 return true;

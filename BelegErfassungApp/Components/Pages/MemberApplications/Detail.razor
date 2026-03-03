@@ -1,0 +1,481 @@
+﻿@page "/member-applications/{Id:int}"
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@using Microsoft.AspNetCore.Authorization
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Mitglied,Administrator")]
+@inject IMemberApplicationService MemberApplicationService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Mitgliedsantrag Details</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>📋 Antrag #@Id</h2>
+        <div class="d-flex gap-2">
+            @if (_isAdmin)
+            {
+                <button class="btn @(_editMode ? "btn-success" : "btn-outline-primary")" @onclick="ToggleEditMode">
+                    @(_editMode ? "💾 Änderungen speichern" : "✏️ Felder bearbeiten")
+                </button>
+                @if (_editMode)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="CancelEdit">Abbrechen</button>
+                }
+            }
+            <a href="/member-applications" class="btn btn-outline-secondary">← Zurück</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success">@_successMessage</div>
+    }
+
+    @if (_isLoading)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (_application == null)
+    {
+        <div class="alert alert-danger">Antrag nicht gefunden.</div>
+    }
+    else
+    {
+        <div class="row g-4">
+
+            <!-- Status-Card -->
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <span class="badge fs-6 @GetStatusBadge(_application.Status)">
+                            @GetStatusLabel(_application.Status)
+                        </span>
+                        <span class="text-muted">
+                            Eingereicht von <strong>@_application.UploadedByUser?.Email</strong>
+                            am @_application.UploadedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        </span>
+                        @if (_application.ProcessedByUser != null)
+                        {
+                            <span class="text-muted">
+                                | Bearbeitet von <strong>@_application.ProcessedByUser.Email</strong>
+                                am @_application.ProcessedAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personendaten -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header fw-bold">
+                        👤 Personendaten @(_editMode ? "(Bearbeitung)" : "(OCR)")
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Nachname</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Nachname" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Nachname ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Vorname</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Vorname" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Vorname ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Geburtsdatum</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Geburtsdatum" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Geburtsdatum ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Beruf/Tätigkeit</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.BerufTaetigkeit" />
+                                }
+                                else
+                                {
+
+                                    @(_application.BerufTaetigkeit ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Straße</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Strasse" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Strasse ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">PLZ</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.PLZ" />
+                                }
+                                else
+                                {
+
+                                    @(_application.PLZ ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Ort</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Wohnort" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Wohnort ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Telefon</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Telefon" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Telefon ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">E-Mail</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Email" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Email ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Antragsdatum</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Antragsdatum" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Antragsdatum ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Unterschrift</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" @bind="_edit.UnterschriftVorhanden" />
+                                        <label class="form-check-label">Vorhanden</label>
+                                    </div>
+                                }
+                                else if (_application.UnterschriftVorhanden)
+                                {
+                                    <span class="text-success">✅ Vorhanden</span>
+                                }
+                                else
+                                {
+                                    <span class="text-danger">❌ Fehlt</span>
+                                }
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bankdaten -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header fw-bold">
+                        🏦 SEPA-Einzugsermächtigung @(_editMode ? "(Bearbeitung)" : "(OCR)")
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Kontoinhaber</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Kontoinhaber" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Kontoinhaber ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">Geldinstitut</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.Geldinstitut" />
+                                }
+                                else
+                                {
+
+                                    @(_application.Geldinstitut ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">BIC</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.BIC" />
+                                }
+                                else
+                                {
+
+                                    @(_application.BIC ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">IBAN</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.IBAN" />
+                                }
+                                else if (!string.IsNullOrEmpty(_application.IBAN))
+                                {
+
+                                    <code>@_application.IBAN</code>
+                                }
+                                else
+                                {
+
+                                    <span>–</span>
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">SEPA-Datum</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <input class="form-control form-control-sm" @bind="_edit.SEPADatum" />
+                                }
+                                else
+                                {
+
+                                    @(_application.SEPADatum ?? "–")
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5">SEPA-Unterschrift</dt>
+                            <dd class="col-sm-7">
+                                @if (_editMode)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" @bind="_edit.SEPAUnterschriftVorhanden" />
+                                        <label class="form-check-label">Vorhanden</label>
+                                    </div>
+                                }
+                                else if (_application.SEPAUnterschriftVorhanden)
+                                {
+                                    <span class="text-success">✅ Vorhanden</span>
+                                }
+                                else
+                                {
+                                    <span class="text-danger">❌ Fehlt</span>
+                                }
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin-Bearbeitung -->
+            @if (_isAdmin)
+            {
+                <div class="col-12">
+                    <div class="card shadow-sm border-warning">
+                        <div class="card-header fw-bold text-warning">🔧 Bearbeitung (Admin)</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Status setzen</label>
+                                <select class="form-select" @bind="_selectedStatus">
+                                    @foreach (var s in Enum.GetValues<MemberApplicationStatus>())
+                                    {
+                                        <option value="@s">@GetStatusLabel(s)</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Bearbeitungsnotiz</label>
+                                <textarea class="form-control" rows="3" @bind="_processingNote"
+                                          placeholder="z.B. In WisoMeinVerein angelegt unter Mitglied-Nr. 12345"></textarea>
+                            </div>
+
+                            <button class="btn btn-warning" @onclick="SaveStatus">
+                                💾 Status speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_application.ProcessingNote))
+            {
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header fw-bold">📝 Bearbeitungsnotiz</div>
+                        <div class="card-body">@_application.ProcessingNote</div>
+                    </div>
+                </div>
+            }
+
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MemberApplication? _application;
+    private MemberApplication _edit = new();
+    private bool _isLoading = true;
+    private bool _isAdmin = false;
+    private bool _editMode = false;
+    private MemberApplicationStatus _selectedStatus;
+    private string _processingNote = string.Empty;
+    private string _successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = authState.User.IsInRole("Administrator");
+        _application = await MemberApplicationService.GetByIdAsync(Id);
+
+        if (_application != null)
+        {
+            _selectedStatus = _application.Status;
+            _processingNote = _application.ProcessingNote ?? string.Empty;
+        }
+
+        _isLoading = false;
+    }
+
+    private void ToggleEditMode()
+    {
+        if (_editMode)
+        {
+            // Speichern
+            _ = SaveFieldsAsync();
+        }
+        else
+        {
+            // Edit-Kopie befüllen
+            _edit = new MemberApplication
+            {
+                Nachname = _application!.Nachname,
+                Vorname = _application.Vorname,
+                Geburtsdatum = _application.Geburtsdatum,
+                BerufTaetigkeit = _application.BerufTaetigkeit,
+                Strasse = _application.Strasse,
+                PLZ = _application.PLZ,
+                Wohnort = _application.Wohnort,
+                Telefon = _application.Telefon,
+                Email = _application.Email,
+                Antragsdatum = _application.Antragsdatum,
+                UnterschriftVorhanden = _application.UnterschriftVorhanden,
+                Kontoinhaber = _application.Kontoinhaber,
+                Geldinstitut = _application.Geldinstitut,
+                BIC = _application.BIC,
+                IBAN = _application.IBAN,
+                SEPADatum = _application.SEPADatum,
+                SEPAUnterschriftVorhanden = _application.SEPAUnterschriftVorhanden
+            };
+            _editMode = true;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        _editMode = false;
+    }
+
+    private async Task SaveFieldsAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        await MemberApplicationService.UpdateFieldsAsync(Id, _edit, userId);
+        _application = await MemberApplicationService.GetByIdAsync(Id);
+        _editMode = false;
+        _successMessage = "✅ Felder erfolgreich gespeichert.";
+    }
+
+
+    private async Task SaveStatus()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        await MemberApplicationService.UpdateStatusAsync(Id, _selectedStatus, userId, _processingNote);
+        _application = await MemberApplicationService.GetByIdAsync(Id);
+        _successMessage = "✅ Status erfolgreich gespeichert.";
+    }
+
+    private string GetStatusBadge(MemberApplicationStatus status) => status switch
+    {
+        MemberApplicationStatus.Eingegangen => "bg-warning text-dark",
+        MemberApplicationStatus.InBearbeitung => "bg-info text-dark",
+        MemberApplicationStatus.Angelegt => "bg-success",
+        MemberApplicationStatus.Abgelehnt => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusLabel(MemberApplicationStatus status) => status switch
+    {
+        MemberApplicationStatus.Eingegangen => "📥 Eingegangen",
+        MemberApplicationStatus.InBearbeitung => "🔄 In Bearbeitung",
+        MemberApplicationStatus.Angelegt => "✅ Angelegt",
+        MemberApplicationStatus.Abgelehnt => "❌ Abgelehnt",
+        _ => status.ToString()
+    };
+}

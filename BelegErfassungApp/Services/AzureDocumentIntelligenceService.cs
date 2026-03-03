@@ -7,6 +7,7 @@ namespace BelegErfassungApp.Services
     public interface IOcrService
     {
         Task<OcrResult> AnalyzeReceiptAsync(Stream fileStream);
+        Task<string> ExtractRawTextAsync(Stream fileStream);
     }
 
     public class OcrResult
@@ -134,5 +135,46 @@ namespace BelegErfassungApp.Services
                 return new OcrResult();
             }
         }
+        public async Task<string> ExtractRawTextAsync(Stream fileStream)
+        {
+            try
+            {
+                _logger.LogInformation("Starte Rohtext-Extraktion mit Azure Document Intelligence");
+
+                var binaryData = await BinaryData.FromStreamAsync(fileStream);
+
+                // prebuilt-read für allgemeine Textextraktion
+                var operation = await _client.AnalyzeDocumentAsync(
+                    WaitUntil.Completed,
+                    "prebuilt-read",
+                    binaryData);
+
+                var result = operation.Value;
+                var sb = new System.Text.StringBuilder();
+
+                foreach (var page in result.Pages)
+                {
+                    foreach (var line in page.Lines)
+                    {
+                        sb.AppendLine(line.Content);
+                    }
+                }
+
+                var rawText = sb.ToString();
+                _logger.LogInformation("Rohtext-Extraktion abgeschlossen. Zeichen: {Count}", rawText.Length);
+                return rawText;
+            }
+            catch (RequestFailedException ex)
+            {
+                _logger.LogError(ex, "Azure Document Intelligence API-Fehler bei Rohtext-Extraktion: {Message}", ex.Message);
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler bei der Rohtext-Extraktion");
+                return string.Empty;
+            }
+        }
+
     }
 }

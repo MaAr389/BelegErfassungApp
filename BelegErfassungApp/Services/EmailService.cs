@@ -1,7 +1,386 @@
-﻿using BelegErfassungApp.Services;
+﻿//using BelegErfassungApp.Services;
+//using Microsoft.Extensions.Configuration;
+//using Microsoft.Extensions.Logging;
+//using System;
+//using System.Net;
+//using System.Net.Mail;
+//using System.Threading.Tasks;
+
+//namespace BelegErfassungApp.Services
+//{
+//    public class EmailService : IEmailService
+//    {
+//        private readonly IConfiguration _configuration;
+//        private readonly ILogger<EmailService> _logger;
+
+//        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+//        {
+//            _configuration = configuration;
+//            _logger = logger;
+//        }
+
+//        public async Task SendStatusChangeNotificationAsync(
+//            string recipientEmail,
+//            string userName,
+//            string receiptFileName,
+//            string oldStatus,
+//            string newStatus)
+//        {
+//            try
+//            {
+//                var subject = $"Beleg-Status aktualisiert: {receiptFileName}";
+
+//                var body = $@"
+//                    <h2>📋 Beleg-Status Benachrichtigung</h2>
+//                    <p>Hallo {userName},</p>
+//                    <p>Der Status deines Belegs wurde aktualisiert:</p>
+//                    <ul>
+//                        <li><strong>Datei:</strong> {receiptFileName}</li>
+//                        <li><strong>Alter Status:</strong> <span style='color: orange;'>{oldStatus}</span></li>
+//                        <li><strong>Neuer Status:</strong> <span style='color: green;'>{newStatus}</span></li>
+//                        <li><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</li>
+//                    </ul>
+//                    <p>Du kannst die Details in deinem Dashboard ansehen.</p>
+//                    <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
+//                ";
+
+//                await SendEmailAsync(recipientEmail, subject, body);
+//            }
+//            catch (Exception ex)
+//            {
+//                _logger.LogError(ex, $"Fehler beim Versand der Status-Benachrichtigung an {recipientEmail}");
+//                throw;
+//            }
+//        }
+
+//        public async Task SendNewReceiptNotificationAsync(
+//            string adminEmail,
+//            string memberName,
+//            string receiptFileName,
+//            decimal amount)
+//        {
+//            try
+//            {
+//                var subject = $"🔔 Neuer Beleg eingereicht: {receiptFileName}";
+
+//                var body = $@"
+//                    <h2>📤 Neuer Beleg eingereicht</h2>
+//                    <p>Ein neuer Beleg wurde hochgeladen:</p>
+//                    <ul>
+//                        <li><strong>Mitglied:</strong> {memberName}</li>
+//                        <li><strong>Datei:</strong> {receiptFileName}</li>
+//                        <li><strong>Betrag:</strong> €{amount:F2}</li>
+//                        <li><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</li>
+//                    </ul>
+//                    <p><a href='https://belegverwaltung.de/admin/allreceipts'>👉 Zum Admin-Dashboard</a></p>
+//                    <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
+//                ";
+
+//                await SendEmailAsync(adminEmail, subject, body);
+//            }
+//            catch (Exception ex)
+//            {
+//                _logger.LogError(ex, $"Fehler beim Versand der Admin-Benachrichtigung an {adminEmail}");
+//                throw;
+//            }
+//        }
+
+//        public async Task SendCommentNotificationAsync(
+//            string recipientEmail,
+//            string recipientName,
+//            string receiptFileName,
+//            string commenterName,
+//            string commentText,
+//            bool isAdminComment)
+//        {
+//            try
+//            {
+//                var subject = isAdminComment
+//                    ? $"💬 Neue Administrator-Antwort zu Beleg: {receiptFileName}"
+//                    : $"💬 Neuer Kommentar zu Beleg: {receiptFileName}";
+
+//                var body = $@"
+//            <h2>💬 Neuer Kommentar</h2>
+//            <p>Hallo {recipientName},</p>
+//            <p>{(isAdminComment ? "Ein Administrator" : commenterName)} hat einen Kommentar zu deinem Beleg hinterlassen:</p>
+//            <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;'>
+//                <strong>{commenterName}:</strong><br/>
+//                {commentText}
+//            </div>
+//            <p><strong>Beleg:</strong> {receiptFileName}</p>
+//            <p><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</p>
+//            <p>Du kannst die Details in deinem Dashboard ansehen.</p>
+//            <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
+//        ";
+
+//                await SendEmailAsync(recipientEmail, subject, body);
+//            }
+//            catch (Exception ex)
+//            {
+//                _logger.LogError(ex, $"Fehler beim Versand der Kommentar-Benachrichtigung an {recipientEmail}");
+//                throw;
+//            }
+//        }
+
+
+//        public async Task SendTestEmailAsync(string recipientEmail)
+//        {
+//            try
+//            {
+//                var subject = "✅ Test-E-Mail";
+//                var body = "<p>Dies ist eine Test-E-Mail. Wenn du diese erhältst, funktioniert der E-Mail-Service!</p>";
+
+//                await SendEmailAsync(recipientEmail, subject, body);
+//            }
+//            catch (Exception ex)
+//            {
+//                _logger.LogError(ex, $"Fehler beim Versand der Test-E-Mail an {recipientEmail}");
+//                throw;
+//            }
+//        }
+
+//        // Private Hilfsmethode
+//        //private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+//        //{
+//        //    var smtpHost = _configuration["Email:SmtpHost"];
+//        //    var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
+//        //    var senderEmail = _configuration["Email:SenderEmail"];
+//        //    var senderPassword = _configuration["Email:SenderPassword"];
+//        //    var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
+
+//        //    if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(senderEmail))
+//        //    {
+//        //        _logger.LogWarning("SMTP nicht konfiguriert. E-Mail wird nicht versendet.");
+//        //        return;
+//        //    }
+
+//        //    using (var client = new SmtpClient(smtpHost, smtpPort))
+//        //    {
+//        //        client.EnableSsl = true;
+//        //        client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+
+//        //        var mailMessage = new MailMessage
+//        //        {
+//        //            From = new MailAddress(senderEmail, senderName),  // ✅ Jetzt sicher
+//        //            Subject = subject,
+//        //            Body = body,
+//        //            IsBodyHtml = true
+//        //        };
+
+//        //        mailMessage.To.Add(new MailAddress(recipientEmail));
+
+//        //        try
+//        //        {
+//        //            await client.SendMailAsync(mailMessage);
+//        //            _logger.LogInformation($"E-Mail erfolgreich versendet an {recipientEmail}");
+//        //        }
+//        //        finally
+//        //        {
+//        //            mailMessage.Dispose();
+//        //        }
+//        //    }
+//        //}
+
+//        //private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+//        //{
+//        //    var smtpHost = _configuration["Email:SmtpHost"];
+//        //    var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
+//        //    var senderEmail = _configuration["Email:SenderEmail"];
+//        //    var senderPassword = _configuration["Email:SenderPassword"];
+//        //    var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
+
+//        //    if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(senderEmail))
+//        //    {
+//        //        _logger.LogWarning("SMTP nicht konfiguriert. E-Mail wird nicht versendet.");
+//        //        return;
+//        //    }
+
+//        //    _logger.LogInformation($"📧 Versuche E-Mail zu versenden an {recipientEmail}");
+
+//        //    using (var client = new SmtpClient(smtpHost, smtpPort))
+//        //    {
+//        //        // SSL nur aktivieren, wenn NICHT Port 25 (für Relay-Container)
+//        //        client.EnableSsl = (smtpPort != 25);
+
+//        //        // Bei Port 25 (Relay) keine Credentials nötig
+//        //        if (smtpPort == 25)
+//        //        {
+//        //            client.UseDefaultCredentials = true;
+//        //        }
+//        //        else
+//        //        {
+//        //            client.UseDefaultCredentials = false;
+//        //            client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+//        //        }
+
+//        //        client.DeliveryMethod = SmtpDeliveryMethod.Network;
+//        //        client.Timeout = 30000;
+
+//        //        var mailMessage = new MailMessage
+//        //        {
+//        //            From = new MailAddress(senderEmail, senderName),
+//        //            Subject = subject,
+//        //            Body = body,
+//        //            IsBodyHtml = true
+//        //        };
+
+//        //        mailMessage.To.Add(new MailAddress(recipientEmail));
+
+//        //        try
+//        //        {
+//        //            await client.SendMailAsync(mailMessage);
+//        //            _logger.LogInformation($"✅ E-Mail erfolgreich versendet an {recipientEmail}");
+//        //        }
+//        //        catch (Exception ex)
+//        //        {
+//        //            _logger.LogError(ex, $"❌ SMTP-Fehler bei {recipientEmail}: {ex.Message}");
+//        //            throw;
+//        //        }
+//        //        finally
+//        //        {
+//        //            mailMessage.Dispose();
+//        //        }
+//        //    }
+//        //}
+
+//        private async Task SendEmailAsync(string recipientEmail, string subject, string body)
+//        {
+//            _logger.LogInformation("=== E-Mail-Versand Start ===");
+//            _logger.LogDebug("Recipient: {Recipient}, Subject: {Subject}", recipientEmail, subject);
+
+//            // 1. Konfiguration laden
+//            var smtpHost = _configuration["Email:SmtpHost"];
+//            var smtpPortStr = _configuration["Email:SmtpPort"] ?? "587";
+//            var senderEmail = _configuration["Email:SenderEmail"];
+//            var senderPassword = _configuration["Email:SenderPassword"];
+//            var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
+
+//            // 2. Konfiguration validieren & loggen
+//            _logger.LogInformation("📋 SMTP-Konfiguration geladen: Host={SmtpHost}, Port={SmtpPort}, Sender={Sender}",
+//                smtpHost ?? "<<NULL>>", smtpPortStr, senderEmail ?? "<<NULL>>");
+
+//            if (string.IsNullOrWhiteSpace(smtpHost))
+//            {
+//                _logger.LogError("❌ SMTP Host nicht konfiguriert! Bitte Email:SmtpHost in appsettings.json setzen");
+//                return;
+//            }
+
+//            if (string.IsNullOrWhiteSpace(senderEmail))
+//            {
+//                _logger.LogError("❌ Sender Email nicht konfiguriert! Bitte Email:SenderEmail in appsettings.json setzen");
+//                return;
+//            }
+
+//            if (!int.TryParse(smtpPortStr, out var smtpPort))
+//            {
+//                _logger.LogError("❌ SmtpPort ungültig: '{Port}' ist keine ganze Zahl", smtpPortStr);
+//                return;
+//            }
+
+//            if (smtpPort < 1 || smtpPort > 65535)
+//            {
+//                _logger.LogError("❌ SmtpPort außerhalb gültigen Bereichs: {Port} (1-65535)", smtpPort);
+//                return;
+//            }
+
+//            // 3. Empfänger validieren
+//            try
+//            {
+//                var _ = new MailAddress(recipientEmail);
+//            }
+//            catch (FormatException ex)
+//            {
+//                _logger.LogError(ex, "❌ Empfänger-Email ungültig: {Recipient}", recipientEmail);
+//                return;
+//            }
+
+//            // 4. SmtpClient erstellen & Loggen
+//            _logger.LogInformation("📧 Erstelle SMTP-Verbindung zu {Host}:{Port}, SSL={EnableSSL}",
+//                smtpHost, smtpPort, smtpPort != 25);
+
+//            using (var client = new SmtpClient(smtpHost, smtpPort))
+//            {
+//                try
+//                {
+//                    // 5. Verbindungsparameter konfigurieren
+//                    client.EnableSsl = (smtpPort != 25);
+//                    client.Timeout = 30000;
+//                    client.DeliveryMethod = SmtpDeliveryMethod.Network;
+
+//                    if (smtpPort == 25)
+//                    {
+//                        _logger.LogDebug("⚙️ Port 25 erkannt (Relay-Modus) → UseDefaultCredentials = true");
+//                        client.UseDefaultCredentials = true;
+//                    }
+//                    else
+//                    {
+//                        _logger.LogDebug("⚙️ Port {Port} → Verwende Credentials für User: {User}", smtpPort, senderEmail);
+//                        client.UseDefaultCredentials = false;
+//                        client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+//                    }
+
+//                    // 6. MailMessage erstellen
+//                    var mailMessage = new MailMessage
+//                    {
+//                        From = new MailAddress(senderEmail, senderName),
+//                        Subject = subject,
+//                        Body = body,
+//                        IsBodyHtml = true
+//                    };
+//                    mailMessage.To.Add(new MailAddress(recipientEmail));
+
+//                    _logger.LogInformation("📤 Versende E-Mail von {From} an {To}...",
+//                        mailMessage.From.Address, recipientEmail);
+
+//                    // 7. E-Mail versenden
+//                    await client.SendMailAsync(mailMessage);
+
+//                    _logger.LogInformation("✅ E-Mail erfolgreich versendet an {Recipient}", recipientEmail);
+//                    mailMessage.Dispose();
+//                }
+//                catch (SmtpException smtpEx)
+//                {
+//                    _logger.LogError(smtpEx,
+//                        "❌ SMTP-Fehler (Code: {StatusCode}): {Message}\n   InnerException: {InnerMessage}\n   Prüfe: Host={Host}, Port={Port}, Authentifizierung, Firewall",
+//                        smtpEx.StatusCode, smtpEx.Message, smtpEx.InnerException?.Message ?? "keine", smtpHost, smtpPort);
+//                    throw;
+//                }
+//                catch (IOException ioEx)
+//                {
+//                    _logger.LogError(ioEx,
+//                        "❌ Verbindungsfehler: {Message}\n   InnerException: {InnerMessage}\n   Prüfe: Host erreichbar? Firewall? SSL/TLS-Problem?",
+//                        ioEx.Message, ioEx.InnerException?.Message ?? "keine");
+//                    throw;
+//                }
+//                catch (InvalidOperationException invEx)
+//                {
+//                    _logger.LogError(invEx,
+//                        "❌ Ungültige Operation: {Message}\n   Typischerweise: SMTP-Client bereits versendet oder Credentials-Problem",
+//                        invEx.Message);
+//                    throw;
+//                }
+//                catch (Exception ex)
+//                {
+//                    _logger.LogError(ex,
+//                        "❌ Unerwarteter Fehler beim E-Mail-Versand: {Message}\n   Typ: {ExceptionType}",
+//                        ex.Message, ex.GetType().FullName);
+//                    throw;
+//                }
+//            }
+//        }
+
+
+
+
+//    }
+//}
+
+using BelegErfassungApp.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Threading.Tasks;
@@ -12,11 +391,16 @@ namespace BelegErfassungApp.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<EmailService> _logger;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+        public EmailService(
+            IConfiguration configuration,
+            ILogger<EmailService> logger,
+            UserManager<ApplicationUser> userManager)
         {
             _configuration = configuration;
             _logger = logger;
+            _userManager = userManager;
         }
 
         public async Task SendStatusChangeNotificationAsync(
@@ -29,7 +413,6 @@ namespace BelegErfassungApp.Services
             try
             {
                 var subject = $"Beleg-Status aktualisiert: {receiptFileName}";
-
                 var body = $@"
                     <h2>📋 Beleg-Status Benachrichtigung</h2>
                     <p>Hallo {userName},</p>
@@ -43,12 +426,11 @@ namespace BelegErfassungApp.Services
                     <p>Du kannst die Details in deinem Dashboard ansehen.</p>
                     <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
                 ";
-
                 await SendEmailAsync(recipientEmail, subject, body);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Fehler beim Versand der Status-Benachrichtigung an {recipientEmail}");
+                _logger.LogError(ex, "Fehler beim Versand der Status-Benachrichtigung an {Email}", recipientEmail);
                 throw;
             }
         }
@@ -62,7 +444,6 @@ namespace BelegErfassungApp.Services
             try
             {
                 var subject = $"🔔 Neuer Beleg eingereicht: {receiptFileName}";
-
                 var body = $@"
                     <h2>📤 Neuer Beleg eingereicht</h2>
                     <p>Ein neuer Beleg wurde hochgeladen:</p>
@@ -72,15 +453,13 @@ namespace BelegErfassungApp.Services
                         <li><strong>Betrag:</strong> €{amount:F2}</li>
                         <li><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</li>
                     </ul>
-                    <p><a href='https://belegverwaltung.de/admin/allreceipts'>👉 Zum Admin-Dashboard</a></p>
                     <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
                 ";
-
                 await SendEmailAsync(adminEmail, subject, body);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Fehler beim Versand der Admin-Benachrichtigung an {adminEmail}");
+                _logger.LogError(ex, "Fehler beim Versand der Admin-Benachrichtigung an {Email}", adminEmail);
                 throw;
             }
         }
@@ -100,28 +479,25 @@ namespace BelegErfassungApp.Services
                     : $"💬 Neuer Kommentar zu Beleg: {receiptFileName}";
 
                 var body = $@"
-            <h2>💬 Neuer Kommentar</h2>
-            <p>Hallo {recipientName},</p>
-            <p>{(isAdminComment ? "Ein Administrator" : commenterName)} hat einen Kommentar zu deinem Beleg hinterlassen:</p>
-            <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;'>
-                <strong>{commenterName}:</strong><br/>
-                {commentText}
-            </div>
-            <p><strong>Beleg:</strong> {receiptFileName}</p>
-            <p><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</p>
-            <p>Du kannst die Details in deinem Dashboard ansehen.</p>
-            <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
-        ";
-
+                    <h2>💬 Neuer Kommentar</h2>
+                    <p>Hallo {recipientName},</p>
+                    <p>{(isAdminComment ? "Ein Administrator" : commenterName)} hat einen Kommentar zu deinem Beleg hinterlassen:</p>
+                    <div style='background-color: #f5f5f5; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;'>
+                        <strong>{commenterName}:</strong><br/>
+                        {commentText}
+                    </div>
+                    <p><strong>Beleg:</strong> {receiptFileName}</p>
+                    <p><strong>Zeitstempel:</strong> {DateTime.Now:dd.MM.yyyy HH:mm:ss}</p>
+                    <p>Mit freundlichen Grüßen,<br/>Belegverwaltungs-System</p>
+                ";
                 await SendEmailAsync(recipientEmail, subject, body);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Fehler beim Versand der Kommentar-Benachrichtigung an {recipientEmail}");
+                _logger.LogError(ex, "Fehler beim Versand der Kommentar-Benachrichtigung an {Email}", recipientEmail);
                 throw;
             }
         }
-
 
         public async Task SendTestEmailAsync(string recipientEmail)
         {
@@ -129,161 +505,93 @@ namespace BelegErfassungApp.Services
             {
                 var subject = "✅ Test-E-Mail";
                 var body = "<p>Dies ist eine Test-E-Mail. Wenn du diese erhältst, funktioniert der E-Mail-Service!</p>";
-
                 await SendEmailAsync(recipientEmail, subject, body);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Fehler beim Versand der Test-E-Mail an {recipientEmail}");
+                _logger.LogError(ex, "Fehler beim Versand der Test-E-Mail an {Email}", recipientEmail);
                 throw;
             }
         }
 
-        // Private Hilfsmethode
-        //private async Task SendEmailAsync(string recipientEmail, string subject, string body)
-        //{
-        //    var smtpHost = _configuration["Email:SmtpHost"];
-        //    var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
-        //    var senderEmail = _configuration["Email:SenderEmail"];
-        //    var senderPassword = _configuration["Email:SenderPassword"];
-        //    var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
+        public async Task SendToAdminsAsync(string subject, string body)
+        {
+            try
+            {
+                var admins = await _userManager.GetUsersInRoleAsync("Administrator");
 
-        //    if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(senderEmail))
-        //    {
-        //        _logger.LogWarning("SMTP nicht konfiguriert. E-Mail wird nicht versendet.");
-        //        return;
-        //    }
+                if (!admins.Any())
+                {
+                    _logger.LogWarning("Keine Administratoren gefunden – E-Mail wird nicht versendet.");
+                    return;
+                }
 
-        //    using (var client = new SmtpClient(smtpHost, smtpPort))
-        //    {
-        //        client.EnableSsl = true;
-        //        client.Credentials = new NetworkCredential(senderEmail, senderPassword);
+                var htmlBody = $@"
+                    <h2>📋 {subject}</h2>
+                    <div style='font-family: Arial, sans-serif; padding: 15px;'>
+                        {body.Replace("\n", "<br/>")}
+                    </div>
+                    <hr/>
+                    <p style='color: gray; font-size: 12px;'>
+                        Zeitstempel: {DateTime.Now:dd.MM.yyyy HH:mm:ss}<br/>
+                        Belegverwaltungs-System
+                    </p>
+                ";
 
-        //        var mailMessage = new MailMessage
-        //        {
-        //            From = new MailAddress(senderEmail, senderName),  // ✅ Jetzt sicher
-        //            Subject = subject,
-        //            Body = body,
-        //            IsBodyHtml = true
-        //        };
+                foreach (var admin in admins)
+                {
+                    if (string.IsNullOrWhiteSpace(admin.Email)) continue;
 
-        //        mailMessage.To.Add(new MailAddress(recipientEmail));
-
-        //        try
-        //        {
-        //            await client.SendMailAsync(mailMessage);
-        //            _logger.LogInformation($"E-Mail erfolgreich versendet an {recipientEmail}");
-        //        }
-        //        finally
-        //        {
-        //            mailMessage.Dispose();
-        //        }
-        //    }
-        //}
-
-        //private async Task SendEmailAsync(string recipientEmail, string subject, string body)
-        //{
-        //    var smtpHost = _configuration["Email:SmtpHost"];
-        //    var smtpPort = int.Parse(_configuration["Email:SmtpPort"] ?? "587");
-        //    var senderEmail = _configuration["Email:SenderEmail"];
-        //    var senderPassword = _configuration["Email:SenderPassword"];
-        //    var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
-
-        //    if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(senderEmail))
-        //    {
-        //        _logger.LogWarning("SMTP nicht konfiguriert. E-Mail wird nicht versendet.");
-        //        return;
-        //    }
-
-        //    _logger.LogInformation($"📧 Versuche E-Mail zu versenden an {recipientEmail}");
-
-        //    using (var client = new SmtpClient(smtpHost, smtpPort))
-        //    {
-        //        // SSL nur aktivieren, wenn NICHT Port 25 (für Relay-Container)
-        //        client.EnableSsl = (smtpPort != 25);
-
-        //        // Bei Port 25 (Relay) keine Credentials nötig
-        //        if (smtpPort == 25)
-        //        {
-        //            client.UseDefaultCredentials = true;
-        //        }
-        //        else
-        //        {
-        //            client.UseDefaultCredentials = false;
-        //            client.Credentials = new NetworkCredential(senderEmail, senderPassword);
-        //        }
-
-        //        client.DeliveryMethod = SmtpDeliveryMethod.Network;
-        //        client.Timeout = 30000;
-
-        //        var mailMessage = new MailMessage
-        //        {
-        //            From = new MailAddress(senderEmail, senderName),
-        //            Subject = subject,
-        //            Body = body,
-        //            IsBodyHtml = true
-        //        };
-
-        //        mailMessage.To.Add(new MailAddress(recipientEmail));
-
-        //        try
-        //        {
-        //            await client.SendMailAsync(mailMessage);
-        //            _logger.LogInformation($"✅ E-Mail erfolgreich versendet an {recipientEmail}");
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            _logger.LogError(ex, $"❌ SMTP-Fehler bei {recipientEmail}: {ex.Message}");
-        //            throw;
-        //        }
-        //        finally
-        //        {
-        //            mailMessage.Dispose();
-        //        }
-        //    }
-        //}
+                    try
+                    {
+                        await SendEmailAsync(admin.Email, subject, htmlBody);
+                        _logger.LogInformation("Admin-Benachrichtigung gesendet an {Email}", admin.Email);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Einzelner Fehler soll nicht alle anderen blockieren
+                        _logger.LogWarning(ex, "Konnte Admin-Benachrichtigung nicht senden an {Email}", admin.Email);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Versand der Admin-Benachrichtigung");
+                throw;
+            }
+        }
 
         private async Task SendEmailAsync(string recipientEmail, string subject, string body)
         {
             _logger.LogInformation("=== E-Mail-Versand Start ===");
-            _logger.LogDebug("Recipient: {Recipient}, Subject: {Subject}", recipientEmail, subject);
 
-            // 1. Konfiguration laden
             var smtpHost = _configuration["Email:SmtpHost"];
             var smtpPortStr = _configuration["Email:SmtpPort"] ?? "587";
             var senderEmail = _configuration["Email:SenderEmail"];
             var senderPassword = _configuration["Email:SenderPassword"];
             var senderName = _configuration["Email:SenderName"] ?? "Belegverwaltung";
 
-            // 2. Konfiguration validieren & loggen
-            _logger.LogInformation("📋 SMTP-Konfiguration geladen: Host={SmtpHost}, Port={SmtpPort}, Sender={Sender}",
+            _logger.LogInformation("📋 SMTP-Konfiguration: Host={Host}, Port={Port}, Sender={Sender}",
                 smtpHost ?? "<<NULL>>", smtpPortStr, senderEmail ?? "<<NULL>>");
 
             if (string.IsNullOrWhiteSpace(smtpHost))
             {
-                _logger.LogError("❌ SMTP Host nicht konfiguriert! Bitte Email:SmtpHost in appsettings.json setzen");
+                _logger.LogError("❌ SMTP Host nicht konfiguriert!");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(senderEmail))
             {
-                _logger.LogError("❌ Sender Email nicht konfiguriert! Bitte Email:SenderEmail in appsettings.json setzen");
+                _logger.LogError("❌ Sender Email nicht konfiguriert!");
                 return;
             }
 
-            if (!int.TryParse(smtpPortStr, out var smtpPort))
+            if (!int.TryParse(smtpPortStr, out var smtpPort) || smtpPort < 1 || smtpPort > 65535)
             {
-                _logger.LogError("❌ SmtpPort ungültig: '{Port}' ist keine ganze Zahl", smtpPortStr);
+                _logger.LogError("❌ SmtpPort ungültig: {Port}", smtpPortStr);
                 return;
             }
 
-            if (smtpPort < 1 || smtpPort > 65535)
-            {
-                _logger.LogError("❌ SmtpPort außerhalb gültigen Bereichs: {Port} (1-65535)", smtpPort);
-                return;
-            }
-
-            // 3. Empfänger validieren
             try
             {
                 var _ = new MailAddress(recipientEmail);
@@ -294,83 +602,52 @@ namespace BelegErfassungApp.Services
                 return;
             }
 
-            // 4. SmtpClient erstellen & Loggen
-            _logger.LogInformation("📧 Erstelle SMTP-Verbindung zu {Host}:{Port}, SSL={EnableSSL}",
-                smtpHost, smtpPort, smtpPort != 25);
+            _logger.LogInformation("📧 Verbinde zu {Host}:{Port}, SSL={SSL}", smtpHost, smtpPort, smtpPort != 25);
 
-            using (var client = new SmtpClient(smtpHost, smtpPort))
+            using var client = new SmtpClient(smtpHost, smtpPort);
+            try
             {
-                try
-                {
-                    // 5. Verbindungsparameter konfigurieren
-                    client.EnableSsl = (smtpPort != 25);
-                    client.Timeout = 30000;
-                    client.DeliveryMethod = SmtpDeliveryMethod.Network;
+                client.EnableSsl = smtpPort != 25;
+                client.Timeout = 30000;
+                client.DeliveryMethod = SmtpDeliveryMethod.Network;
 
-                    if (smtpPort == 25)
-                    {
-                        _logger.LogDebug("⚙️ Port 25 erkannt (Relay-Modus) → UseDefaultCredentials = true");
-                        client.UseDefaultCredentials = true;
-                    }
-                    else
-                    {
-                        _logger.LogDebug("⚙️ Port {Port} → Verwende Credentials für User: {User}", smtpPort, senderEmail);
-                        client.UseDefaultCredentials = false;
-                        client.Credentials = new NetworkCredential(senderEmail, senderPassword);
-                    }
-
-                    // 6. MailMessage erstellen
-                    var mailMessage = new MailMessage
-                    {
-                        From = new MailAddress(senderEmail, senderName),
-                        Subject = subject,
-                        Body = body,
-                        IsBodyHtml = true
-                    };
-                    mailMessage.To.Add(new MailAddress(recipientEmail));
-
-                    _logger.LogInformation("📤 Versende E-Mail von {From} an {To}...",
-                        mailMessage.From.Address, recipientEmail);
-
-                    // 7. E-Mail versenden
-                    await client.SendMailAsync(mailMessage);
-
-                    _logger.LogInformation("✅ E-Mail erfolgreich versendet an {Recipient}", recipientEmail);
-                    mailMessage.Dispose();
-                }
-                catch (SmtpException smtpEx)
+                if (smtpPort == 25)
                 {
-                    _logger.LogError(smtpEx,
-                        "❌ SMTP-Fehler (Code: {StatusCode}): {Message}\n   InnerException: {InnerMessage}\n   Prüfe: Host={Host}, Port={Port}, Authentifizierung, Firewall",
-                        smtpEx.StatusCode, smtpEx.Message, smtpEx.InnerException?.Message ?? "keine", smtpHost, smtpPort);
-                    throw;
+                    client.UseDefaultCredentials = true;
                 }
-                catch (IOException ioEx)
+                else
                 {
-                    _logger.LogError(ioEx,
-                        "❌ Verbindungsfehler: {Message}\n   InnerException: {InnerMessage}\n   Prüfe: Host erreichbar? Firewall? SSL/TLS-Problem?",
-                        ioEx.Message, ioEx.InnerException?.Message ?? "keine");
-                    throw;
+                    client.UseDefaultCredentials = false;
+                    client.Credentials = new NetworkCredential(senderEmail, senderPassword);
                 }
-                catch (InvalidOperationException invEx)
+
+                using var mailMessage = new MailMessage
                 {
-                    _logger.LogError(invEx,
-                        "❌ Ungültige Operation: {Message}\n   Typischerweise: SMTP-Client bereits versendet oder Credentials-Problem",
-                        invEx.Message);
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex,
-                        "❌ Unerwarteter Fehler beim E-Mail-Versand: {Message}\n   Typ: {ExceptionType}",
-                        ex.Message, ex.GetType().FullName);
-                    throw;
-                }
+                    From = new MailAddress(senderEmail, senderName),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(new MailAddress(recipientEmail));
+
+                await client.SendMailAsync(mailMessage);
+                _logger.LogInformation("✅ E-Mail erfolgreich versendet an {Recipient}", recipientEmail);
+            }
+            catch (SmtpException smtpEx)
+            {
+                _logger.LogError(smtpEx, "❌ SMTP-Fehler (Code: {StatusCode}): {Message}", smtpEx.StatusCode, smtpEx.Message);
+                throw;
+            }
+            catch (IOException ioEx)
+            {
+                _logger.LogError(ioEx, "❌ Verbindungsfehler: {Message}", ioEx.Message);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Unerwarteter Fehler: {Message}", ex.Message);
+                throw;
             }
         }
-
-
-
-
     }
 }

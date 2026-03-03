@@ -1,0 +1,119 @@
+﻿@page "/member-applications"
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@using Microsoft.AspNetCore.Authorization
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Mitglied,Administrator")]
+@inject IMemberApplicationService MemberApplicationService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Mitgliedsanträge</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>📋 Mitgliedsanträge</h2>
+        @* <a href="/member-applications/upload" class="btn btn-primary">➕ Neuer Antrag</a> *@
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else if (!_applications.Any())
+    {
+        <div class="alert alert-info">Noch keine Anträge vorhanden.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Eingereicht von</th>
+                            <th>Datum</th>
+                            <th>Status</th>
+                            <th>Bearbeitet von</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var app in _applications)
+                        {
+                            <tr>
+                                <td>@app.Id</td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(app.Nachname))
+                                    {
+                                        <strong>@app.Vorname @app.Nachname</strong>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">@app.FileName</span>
+                                    }
+                                </td>
+                                <td>@app.UploadedByUser?.Email</td>
+                                <td>@app.UploadedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>
+                                    <span class="badge @GetStatusBadge(app.Status)">
+                                        @GetStatusLabel(app.Status)
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (app.ProcessedByUser != null)
+                                    {
+                                        <small>@app.ProcessedByUser.Email<br />@app.ProcessedAt?.ToLocalTime().ToString("dd.MM.yyyy")</small>
+                                    }
+                                </td>
+                                <td>
+                                    <a href="/member-applications/@app.Id" class="btn btn-sm btn-outline-primary">Details</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<MemberApplication> _applications = new();
+    private bool _isLoading = true;
+    private bool _isAdmin = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAdmin = authState.User.IsInRole("Administrator");
+        var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+        _applications = _isAdmin
+            ? await MemberApplicationService.GetAllAsync()
+            : await MemberApplicationService.GetByUserAsync(userId);
+
+        _isLoading = false;
+    }
+
+    private string GetStatusBadge(MemberApplicationStatus status) => status switch
+    {
+        MemberApplicationStatus.Eingegangen => "bg-warning text-dark",
+        MemberApplicationStatus.InBearbeitung => "bg-info text-dark",
+        MemberApplicationStatus.Angelegt => "bg-success",
+        MemberApplicationStatus.Abgelehnt => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetStatusLabel(MemberApplicationStatus status) => status switch
+    {
+        MemberApplicationStatus.Eingegangen => "📥 Eingegangen",
+        MemberApplicationStatus.InBearbeitung => "🔄 In Bearbeitung",
+        MemberApplicationStatus.Angelegt => "✅ Angelegt",
+        MemberApplicationStatus.Abgelehnt => "❌ Abgelehnt",
+        _ => status.ToString()
+    };
+}

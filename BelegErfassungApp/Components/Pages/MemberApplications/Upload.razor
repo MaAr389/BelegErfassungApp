@@ -1,0 +1,225 @@
+﻿@page "/member-applications/new"
+@using BelegErfassungApp.Data
+@using BelegErfassungApp.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Mitglied,Administrator")]
+@inject IMemberApplicationService MemberApplicationService
+@inject IOcrService OcrService
+@inject IEmailService EmailService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ILogger<Upload> Logger
+
+<PageTitle>Mitgliedsantrag einreichen</PageTitle>
+
+<div class="container mt-4">
+    <h2>📋 Mitgliedsantrag einreichen</h2>
+    <p class="text-muted">Laden Sie den ausgefüllten Mitgliedsantrag hoch. Die Daten werden automatisch per OCR erkannt.</p>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+
+    @if (_uploadSuccess)
+    {
+        <div class="alert alert-success">
+            ✅ Antrag erfolgreich eingereicht! Die Admins wurden benachrichtigt.
+            <a href="/member-applications" class="alert-link">Zur Übersicht</a>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <EditForm Model="_model" OnValidSubmit="HandleUpload">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Datei auswählen (PDF oder Bild)</label>
+                        <InputFile OnChange="OnFileSelected" accept=".pdf,.png,.jpg,.jpeg" class="form-control" />
+                        @if (_selectedFile != null)
+                        {
+                            <div class="form-text text-success">✅ @_selectedFile.Name (@(Math.Round(_selectedFile.Size / 1024.0, 1)) KB)</div>
+                        }
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" disabled="@(_isLoading || _selectedFile == null)">
+                            @if (_isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Wird verarbeitet...</span>
+                            }
+                            else
+                            {
+                                <span>📤 Antrag einreichen</span>
+                            }
+                        </button>
+                        <a href="/member-applications" class="btn btn-outline-secondary">Abbrechen</a>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private IBrowserFile? _selectedFile;
+    private bool _isLoading = false;
+    private bool _uploadSuccess = false;
+    private string _errorMessage = string.Empty;
+    private UploadModel _model = new();
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _errorMessage = string.Empty;
+    }
+
+    private async Task HandleUpload()
+    {
+        if (_selectedFile == null) return;
+
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+            // Datei einlesen
+            var maxSize = 10 * 1024 * 1024; // 10 MB
+            using var stream = _selectedFile.OpenReadStream(maxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var fileBytes = ms.ToArray();
+
+            // Datei speichern
+            var uploadsPath = Path.Combine("wwwroot", "uploads", "member-applications");
+            Directory.CreateDirectory(uploadsPath);
+            var fileName = $"{Guid.NewGuid()}_{_selectedFile.Name}";
+            var filePath = Path.Combine(uploadsPath, fileName);
+            await File.WriteAllBytesAsync(filePath, fileBytes);
+
+            // OCR durchführen – Stream neu erstellen da Original bereits gelesen
+            using var ocrStream = new MemoryStream(fileBytes);
+            var ocrResult = await OcrService.ExtractRawTextAsync(ocrStream);
+
+            // OCR-Felder parsen
+            var application = new MemberApplication
+            {
+                UploadedByUserId = userId,
+                UploadedAt = DateTime.UtcNow,
+                FileName = _selectedFile.Name,
+                FilePath = filePath,
+                ContentType = _selectedFile.ContentType,
+                OcrRawText = ocrResult,
+                OcrProcessed = true,
+                Status = MemberApplicationStatus.Eingegangen
+            };
+
+            ParseOcrFields(ocrResult, application);
+
+            await MemberApplicationService.CreateAsync(application);
+
+            // Admin-Benachrichtigung
+            await NotifyAdminsAsync(application);
+
+            _uploadSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Fehler beim Hochladen des Mitgliedsantrags");
+            _errorMessage = "Fehler beim Hochladen. Bitte versuchen Sie es erneut.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ParseOcrFields(string? ocrText, MemberApplication app)
+    {
+        if (string.IsNullOrWhiteSpace(ocrText)) return;
+
+        var lines = ocrText.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var line in lines)
+        {
+            var l = line.Trim();
+
+            if (l.StartsWith("Nachname", StringComparison.OrdinalIgnoreCase))
+                app.Nachname = ExtractValue(l);
+            else if (l.StartsWith("Vorname", StringComparison.OrdinalIgnoreCase))
+                app.Vorname = ExtractValue(l);
+            else if (l.StartsWith("Geburtsdatum", StringComparison.OrdinalIgnoreCase))
+                app.Geburtsdatum = ExtractValue(l);
+            else if (l.StartsWith("Beruf", StringComparison.OrdinalIgnoreCase))
+                app.BerufTaetigkeit = ExtractValue(l);
+            else if (l.StartsWith("Stra\u00dfe", StringComparison.OrdinalIgnoreCase) ||
+                     l.StartsWith("Strasse", StringComparison.OrdinalIgnoreCase))
+                app.Strasse = ExtractValue(l);
+            else if (l.StartsWith("Postleitzahl", StringComparison.OrdinalIgnoreCase))
+            {
+                var val = ExtractValue(l);
+                var parts = val.Split(' ', 2);
+                app.PLZ = parts.Length > 0 ? parts[0] : val;
+                app.Wohnort = parts.Length > 1 ? parts[1] : string.Empty;
+            }
+            else if (l.StartsWith("Telefon", StringComparison.OrdinalIgnoreCase))
+                app.Telefon = ExtractValue(l);
+            else if (l.StartsWith("E-Mail", StringComparison.OrdinalIgnoreCase))
+                app.Email = ExtractValue(l);
+            else if (l.StartsWith("Datum", StringComparison.OrdinalIgnoreCase) &&
+                     string.IsNullOrEmpty(app.Antragsdatum))
+                app.Antragsdatum = ExtractValue(l);
+            else if (l.StartsWith("Konto-Inhaber", StringComparison.OrdinalIgnoreCase))
+                app.Kontoinhaber = ExtractValue(l);
+            else if (l.StartsWith("Geldinstitut", StringComparison.OrdinalIgnoreCase))
+                app.Geldinstitut = ExtractValue(l);
+            else if (l.StartsWith("BIC", StringComparison.OrdinalIgnoreCase))
+                app.BIC = ExtractValue(l);
+            else if (l.StartsWith("IBAN", StringComparison.OrdinalIgnoreCase))
+                app.IBAN = ExtractValue(l);
+
+            if (l.Contains("Unterschrift", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!app.UnterschriftVorhanden)
+                    app.UnterschriftVorhanden = true;
+                else
+                    app.SEPAUnterschriftVorhanden = true;
+            }
+        }
+    }
+
+    private string ExtractValue(string line)
+    {
+        var idx = line.IndexOf(' ');
+        return idx >= 0 ? line[(idx + 1)..].Trim() : string.Empty;
+    }
+
+    private async Task NotifyAdminsAsync(MemberApplication application)
+    {
+        try
+        {
+            var subject = "📋 Neuer Mitgliedsantrag eingegangen";
+            var body = "Ein neuer Mitgliedsantrag wurde eingereicht.\n\n" +
+                       $"Name: {application.Vorname} {application.Nachname}\n" +
+                       $"Eingegangen am: {application.UploadedAt:dd.MM.yyyy HH:mm}\n" +
+                       $"Datei: {application.FileName}\n\n" +
+                       "Bitte im System pr\u00fcfen und in WisoMeinVerein anlegen.";
+
+            await EmailService.SendToAdminsAsync(subject, body);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Admin-Benachrichtigung konnte nicht gesendet werden");
+        }
+    }
+
+    private class UploadModel { }
+}

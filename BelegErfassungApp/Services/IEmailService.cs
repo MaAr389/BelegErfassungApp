@@ -36,5 +36,6 @@ namespace BelegErfassungApp.Services
             bool isAdminComment);
 
         Task SendTestEmailAsync(string recipientEmail);
+        Task SendToAdminsAsync(string subject, string body);
     }
 }

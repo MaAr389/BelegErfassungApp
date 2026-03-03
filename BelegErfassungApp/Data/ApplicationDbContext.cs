@@ -18,6 +18,9 @@ namespace BelegErfassungApp.Data
 
         public DbSet<ReceiptComment> ReceiptComments { get; set; }
 
+        public DbSet<MemberApplication> MemberApplications { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
